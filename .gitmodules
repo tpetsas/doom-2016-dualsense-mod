@@ -1,3 +1,6 @@
 [submodule "src/dualsensitive"]
 	path = src/dualsensitive
 	url = git@github.com:tpetsas/dualsensitive.git
+[submodule "src/minhook"]
+	path = src/minhook
+	url = git@github.com:TsudaKageyu/minhook.git
