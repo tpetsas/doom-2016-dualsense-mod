@@ -32,6 +32,13 @@
 *.a
 *.lib
 
+# Build directories (common for various build systems)
+build/
+bin/
+obj/
+Debug/
+Release/
+
 # Executables
 *.exe
 *.out
@@ -39,3 +46,18 @@
 
 # debug information files
 *.dwo
+
+# IDE specific files (examples)
+.vscode/
+.idea/
+*.suo
+*.user
+*.ncb
+*.aps
+*.opendb
+*.VC.db
+
+# Other temporary files
+*~
+*.bak
+*.swp
