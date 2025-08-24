@@ -261,10 +261,23 @@ void SendTriggers(std::string weaponType) {
 // Game global vars
 
 static DWORD mainThread = -1;
+HMODULE g_doomBaseAddr = nullptr;
+
+int RVA_weapon_offset = 0x05B0F6D0;
+constexpr uint64_t GHIDRA_IMG_BASE = 0x140000000;   // Image Base (Ghidra)
+constexpr uint64_t DAT_VA          = 0x145B0F6D0;
+constexpr size_t   SLOT_OFFSET     = 0x210;
+
 
 // Game functions
 using _OnWeaponSelected =
                     void(*)(int entityComponentState, long long *weaponState);
+
+using _GetCurrentWeaponName =
+                    char* (__fastcall*)();
+
+using _SelectWeapon =
+                    uint64_t*(__fastcall*)(long long *param_1, long long *param_2, long long *param_3, uint8_t param_4);
 
 // Game Addresses
 
@@ -275,6 +288,21 @@ OnWeaponSelected (
     "48 85 D2 74 ? 48 89 74 24 10 57 48 83 EC 20 83 3D ? ? ? ? 00 48 8B FA 48 8B F1 74 ?"
 );
 _OnWeaponSelected OnWeaponSelected_Original = nullptr;
+
+
+RVA<_SelectWeapon>
+SelectWeapon (
+    "48 89 6C 24 18 56 41 56 41 57 48 83 EC 30 45 0F B6 F9 49 8B E8 4C 8B F2 48 8B F1 4D 85 C0 75 ? 44 38 81 80 CD 00 00 74 ? 41 B9 B2 01 00 00 4C 8D 05 ? ? ? ? 48 8D 15 ? ? ? ? 48 8D 0D ? ? ? ? E8 ? ? ? ?"
+);
+_SelectWeapon SelectWeapon_Original = nullptr;
+
+// Ghidra: DAT_145b0f6d0
+// Ghidra image base address: 0x140000000
+// RVA = (0x145b0f6d0 - 0x140000000) = 0x05B0F6D0
+RVA<_GetCurrentWeaponName>
+GetCurrentWeaponName (
+       (uintptr_t) 0x05B0F6D0
+);
 
 
 // Globals
@@ -300,8 +328,24 @@ namespace DualsenseMod {
         _LOG("OnWeaponSelected at %p",
             OnWeaponSelected.GetUIntPtr()
         );
-        
-        if (!OnWeaponSelected)
+
+        _LOG("SelectWeapon at %p",
+            SelectWeapon.GetUIntPtr()
+        );
+
+        if (!g_doomBaseAddr) {
+            _LOGD("DOOM base address is not set!");
+            return false;
+        }
+
+        // resolve current weapon function address
+        auto doomBase   = reinterpret_cast<uint8_t*>(g_doomBaseAddr);
+
+        _LOG("GetCurrentWeaponName at %p",
+            GetCurrentWeaponName.GetUIntPtr()
+        );
+
+        if (!OnWeaponSelected || !SelectWeapon  || !GetCurrentWeaponName)
             return false;
 
         return true;
@@ -320,8 +364,21 @@ namespace DualsenseMod {
 
     void OnWeaponSelected_Hook(int entityComponentState, long long *weaponState) {
         _LOGD("* OnWeaponSelected hook!!!");
+        if (weaponState != nullptr) {
+            char *weaponName = (char *)(*(long long *)(weaponState[6] + 8));
+
+            //char *currentWeaponName = ((_GetCurrentWeaponName)((uintptr_t)(*GetCurrentWeaponName) + 0x210))();
+
+            _LOGD("idPlayer::OnWeaponSelected - newWeapon = %s\n", weaponName);
+        }
         OnWeaponSelected_Original(entityComponentState, weaponState);
+
         return;
+    }
+
+    uint64_t *SelectWeapon_Hook(long long *param_1, long long *param_2, long long *param_3, uint8_t param_4) {
+        _LOGD("* SelectWeapon hook!!!");
+        return SelectWeapon_Original(param_1, param_2, param_3, param_4);
     }
 
     bool ApplyHooks() {
@@ -336,6 +393,16 @@ namespace DualsenseMod {
         );
         if (MH_EnableHook(OnWeaponSelected) != MH_OK) {
             _LOG("FATAL: Failed to install OnWeaponSelected hook.");
+            return false;
+        }
+
+        MH_CreateHook (
+            SelectWeapon,
+            SelectWeapon_Hook,
+            reinterpret_cast<LPVOID *>(&SelectWeapon_Original)
+        );
+        if (MH_EnableHook(SelectWeapon) != MH_OK) {
+            _LOG("FATAL: Failed to install SelectWeapon hook.");
             return false;
         }
 
@@ -383,7 +450,8 @@ std::string wstring_to_utf8(const std::wstring& ws) {
         g_logger.Open("./mods/dualsensemod.log");
         _LOG("DOOM (2015) DualsenseMod v1.0 by Thanos Petsas (SkyExplosionist)");
         //_LOG("Game version: %" PRIX64, Utils::GetGameVersion());
-        _LOG("Module base: %p", GetModuleHandle(NULL));
+        g_doomBaseAddr = GetModuleHandle(NULL);
+        _LOG("Module base: %p", g_doomBaseAddr);
 
         // Sigscan
         if (!InitAddresses() || !PopulateOffsets()) {
