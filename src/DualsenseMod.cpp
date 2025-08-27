@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Thanasis Petsas <thanpetsas@gmail.com>
+ * Copyright (C) 2025 Thanasis Petsas <thanpetsas@gmail.com>
  * Licence: MIT Licence
  */
 
@@ -258,6 +258,11 @@ void SendTriggers(std::string weaponType) {
     _LOGD("Adaptive Trigger settings sent successfully!");
 }
 
+
+// Game structures
+using Player  = void;
+using Weapon  = void;
+
 // Game global vars
 
 static DWORD mainThread = -1;
@@ -268,19 +273,41 @@ constexpr uint64_t GHIDRA_IMG_BASE = 0x140000000;   // Image Base (Ghidra)
 constexpr uint64_t DAT_VA          = 0x145B0F6D0;
 constexpr size_t   SLOT_OFFSET     = 0x210;
 
+static size_t g_currWeaponOffset = 0x9788;
+// = SIZE_MAX; // to search for the offset using FindCurrWeaponHandle
+
+static Weapon *g_currWeapon = nullptr;
+
+static Player *g_currPlayer = nullptr;
+
+
 
 // Game functions
 using _OnWeaponSelected =
-                    void(*)(int entityComponentState, long long *weaponState);
-
-using _GetCurrentWeaponName =
-                    char* (__fastcall*)();
+                    void(__fastcall*)(void *player, long long *weapon);
 
 using _SelectWeapon =
-                    uint64_t*(__fastcall*)(long long *param_1, long long *param_2, long long *param_3, uint8_t param_4);
+                    uint64_t*(__fastcall*) (
+                            long long *param_1,long long *param_2,
+                            long long *param_3, uint8_t param_4
+                    );
+
+using _SelectWeaponByDeclExplicit =
+                    unsigned long long(__fastcall*) (
+                            long long *player, long long param_2,
+                            char param_3, char param_4
+                    );
+
+// handle to pointer resolution. It takes a 64-bit handle/id and returns a real
+// object pointer (FUN_14142C870)
+using _HandleToPointer  = Weapon* (__fastcall*)(uint64_t);
+// idPlayer's vtable + 0xB20
+using PlayerState  = uint32_t(__fastcall*)(Player*);
+// idPlayer's vtable +0x678
+using GetHandle    = uint64_t(__fastcall*)(Player*, uint32_t state);
+
 
 // Game Addresses
-
 
 // This function is called every time a weapon switch takes place
 RVA<_OnWeaponSelected>
@@ -289,21 +316,101 @@ OnWeaponSelected (
 );
 _OnWeaponSelected OnWeaponSelected_Original = nullptr;
 
+RVA<_SelectWeaponByDeclExplicit>
+SelectWeaponByDeclExplicit (
+    "48 89 5c 24 08 48 89 6c 24 10 48 89 74 24 18 57 41 56 41 57 48 83 ec 20 83 3d 91 73 d8 04 00 45 0f b6 f1 45 0f b6 f8 48 8b ea 48 8b f9 74 2c 48 8b 0d fa af cc 04 48 8b 5a 08 48 8b 01 ff 90 10 02 00 00 4c 8b cb 4c 8d 05 1b e5 46 01 8b d0"
+
+    //"48 8B 0D ? ? ? ? 48 8B 5A 08 48 8B 01 FF 90 10 02 00 00 4C 8B CB 4C 8D 05 ? ? ? ? 8B D0 48 8D 0D ? ? ? ? E8 ? ? ? ?"
+);
+_SelectWeaponByDeclExplicit SelectWeaponByDeclExplicit_Original = nullptr;
+
 
 RVA<_SelectWeapon>
 SelectWeapon (
-    "48 89 6C 24 18 56 41 56 41 57 48 83 EC 30 45 0F B6 F9 49 8B E8 4C 8B F2 48 8B F1 4D 85 C0 75 ? 44 38 81 80 CD 00 00 74 ? 41 B9 B2 01 00 00 4C 8D 05 ? ? ? ? 48 8D 15 ? ? ? ? 48 8D 0D ? ? ? ? E8 ? ? ? ?"
+    "48 89 6c 24 18 56 41 56 41 57 48 83 ec 30 45 0f b6 f9 49 8b e8 4c 8b f2 48 8b f1 4d 85 c0 75 3a 44 38 81 80 cd 00 00 74 20 41 b9 b2 01 00 00 4c 8d 05 f2 e6 46 01 48 8d 15 cb e7 46 01 48 8d 0d 34 e7 46 01 e8 f7 ea 43 ff 32 c0 48 8b 6c 24 60 48 83 c4 30 41 5f 41 5e 5e c3 83 3d bf 76 d8 04 00 48 89 5c 24 50 48 89 7c 24 58 74 69 49 8b 40 30 48 8b 0d 28 b3 cc 04 4d 85 f6 75 27 48 8b 58 08 48 8b 01 ff 90 10 02 00 00"
+
 );
 _SelectWeapon SelectWeapon_Original = nullptr;
 
-// Ghidra: DAT_145b0f6d0
-// Ghidra image base address: 0x140000000
-// RVA = (0x145b0f6d0 - 0x140000000) = 0x05B0F6D0
-RVA<_GetCurrentWeaponName>
-GetCurrentWeaponName (
-       (uintptr_t) 0x05B0F6D0
+// FUN_140e46970 noisy
+// FUN_140e446a0 loads all the weapons
+// FUN_140e44090 x
+// FUN_140e44000 x
+// FUN_140da88c0 x
+// FUN_140da8830 x
+// FUN_1406adc70 x
+
+// FUN_140e446a0 loads all the weapons (xrefs:)
+// FUN_140a5d850: idTarget_EquipItems
+// FUN_140e445e0: idPlayer::SelectWeaponByDecl
+
+RVA<_HandleToPointer>
+HandleToPointer (
+    "40 53 48 83 ec 20 48 8b d9 48 85 c9 74 21 48 8b 01 ff 10 8b 48 68 3b 0d 0c 63 8b 04 7c 11 3b 0d 08 63 8b 04 7f 09 48 8b c3 48 83 c4 20 5b"
 );
 
+
+// Utility functions
+
+static inline uint32_t GetPlayerState(Player* player) {
+    auto vtable = *reinterpret_cast<void***>(player);
+    return reinterpret_cast<PlayerState>(vtable[0xB20/8])(player);
+}
+
+static inline uint64_t GetPlayerHandle(Player* player, uint32_t state) {
+    auto vtable = *reinterpret_cast<void***>(player);
+    return reinterpret_cast<GetHandle>(vtable[0x678/8])(player, state);
+}
+
+static inline char *GetWeaponName(long long* weapon) {
+    if (!weapon) return nullptr;
+    return (char *)(*(long long *)(weapon[6] + 8));
+}
+
+// Utility functions to get the idPlayer's current weapon handle
+
+static size_t FindOffsetByQword(void* base, uint64_t value, size_t limit=0x20000) {
+    auto b = reinterpret_cast<const uint8_t*>(base);
+    for (size_t off = 0; off + 8 <= limit; off += 8) {
+        if (*reinterpret_cast<const uint64_t*>(b + off) == value) return off;
+    }
+    return SIZE_MAX;
+}
+
+static void FindCurrWeaponHandle (Player *player) {
+    auto state = GetPlayerState(player);
+    auto handle = GetPlayerHandle(player, state);
+    if (!handle) {
+        _LOGD("Player handle is NULL");
+        return;
+    }
+    _LOGD("Player state=%u handle=%p", state, (void*)handle);
+
+    if (handle && g_currWeaponOffset==SIZE_MAX ) {
+        g_currWeaponOffset = FindOffsetByQword(player, handle);
+        _LOGD("player->currentWeaponHandle offset = %zu\n", g_currWeaponOffset);
+        // Now at any time: weapon = *(Weapon**)((uint8_t*)player + g_currWeaponOffset);
+    }
+}
+
+static inline Weapon *GetCurrentWeapon (Player *player) {
+    if (!player || !HandleToPointer) {
+        _LOGD("Player or HandleToPointer is NULL");
+        return nullptr;
+    }
+
+    // read 64-bit handle the engine stores in idPlayer
+    const auto handle = *reinterpret_cast <const uint64_t *> (
+        reinterpret_cast <const uint8_t *> (player) + g_currWeaponOffset
+    );
+
+    if (!handle) {
+        _LOGD("Player handle is NULL");
+        return nullptr;
+    }
+
+    return HandleToPointer(handle);
+}
 
 // Globals
 
@@ -333,6 +440,14 @@ namespace DualsenseMod {
             SelectWeapon.GetUIntPtr()
         );
 
+        _LOG("SelectWeaponByDeclExplicit at %p",
+            SelectWeaponByDeclExplicit.GetUIntPtr()
+        );
+
+        _LOG("HandleToPointer at %p",
+            HandleToPointer.GetUIntPtr()
+        );
+
         if (!g_doomBaseAddr) {
             _LOGD("DOOM base address is not set!");
             return false;
@@ -341,11 +456,7 @@ namespace DualsenseMod {
         // resolve current weapon function address
         auto doomBase   = reinterpret_cast<uint8_t*>(g_doomBaseAddr);
 
-        _LOG("GetCurrentWeaponName at %p",
-            GetCurrentWeaponName.GetUIntPtr()
-        );
-
-        if (!OnWeaponSelected || !SelectWeapon  || !GetCurrentWeaponName)
+        if (!OnWeaponSelected || !SelectWeapon || !SelectWeaponByDeclExplicit || !HandleToPointer)
             return false;
 
         return true;
@@ -362,24 +473,46 @@ namespace DualsenseMod {
     }
 
 
-    void OnWeaponSelected_Hook(int entityComponentState, long long *weaponState) {
+    void OnWeaponSelected_Hook(void *player, long long *weapon) {
         _LOGD("* OnWeaponSelected hook!!!");
-        if (weaponState != nullptr) {
-            char *weaponName = (char *)(*(long long *)(weaponState[6] + 8));
 
-            //char *currentWeaponName = ((_GetCurrentWeaponName)((uintptr_t)(*GetCurrentWeaponName) + 0x210))();
-
+        if (weapon != nullptr) {
+            char *weaponName =  GetWeaponName(weapon);
             _LOGD("idPlayer::OnWeaponSelected - newWeapon = %s\n", weaponName);
         }
-        OnWeaponSelected_Original(entityComponentState, weaponState);
+        OnWeaponSelected_Original(player, weapon);
+
+        // XXX uncomment to find the idPlayer's current weapon handler
+        //FindCurrWeaponHandle((Player *) player);
 
         return;
     }
 
     uint64_t *SelectWeapon_Hook(long long *param_1, long long *param_2, long long *param_3, uint8_t param_4) {
-        _LOGD("* SelectWeapon hook!!!");
+        _LOGD("* idPlayer::SelectWeapon hook!!!");
+        char *currentWeaponName = (char *)(*(long long *)(param_2[6] + 8));
+        char *newWeaponName = (char *)(*(long long *)(param_3[6] + 8));
+        _LOGD("idPlayer::SelectWeapon - currentWeapon: %s, newWeapon = %s\n", currentWeaponName, newWeaponName);
         return SelectWeapon_Original(param_1, param_2, param_3, param_4);
     }
+
+    unsigned long long SelectWeaponByDeclExplicit_Hook(long long *player,
+                                long long param_2, char param_3, char param_4) {
+        _LOGD("* idPlayer::SelectWeaponByDeclExplicit hook!!!");
+
+        if (g_currPlayer == nullptr) {
+            g_currPlayer = player;
+            _LOGD("* Set current player addr: 0x%p", g_currPlayer);
+
+            // Get current equipped weapon so we can send out our first
+            // trigger effect profile
+            Weapon *weapon = GetCurrentWeapon(g_currPlayer);
+            _LOGD("* Startup weapon: %s", GetWeaponName((long long *)weapon));
+        }
+        return SelectWeaponByDeclExplicit_Original(player, param_2, param_3, param_4);
+
+    }
+
 
     bool ApplyHooks() {
         _LOG("Applying hooks...");
@@ -403,6 +536,17 @@ namespace DualsenseMod {
         );
         if (MH_EnableHook(SelectWeapon) != MH_OK) {
             _LOG("FATAL: Failed to install SelectWeapon hook.");
+            return false;
+        }
+
+
+        MH_CreateHook (
+            SelectWeaponByDeclExplicit,
+            SelectWeaponByDeclExplicit_Hook,
+            reinterpret_cast<LPVOID *>(&SelectWeaponByDeclExplicit_Original)
+        );
+        if (MH_EnableHook(SelectWeaponByDeclExplicit) != MH_OK) {
+            _LOG("FATAL: Failed to install SelectWeaponByDeclExplicit hook.");
             return false;
         }
 
@@ -448,7 +592,7 @@ std::string wstring_to_utf8(const std::wstring& ws) {
 
     void Init() {
         g_logger.Open("./mods/dualsensemod.log");
-        _LOG("DOOM (2015) DualsenseMod v1.0 by Thanos Petsas (SkyExplosionist)");
+        _LOG("DOOM (2016) DualsenseMod v1.0 by Thanos Petsas (SkyExplosionist)");
         //_LOG("Game version: %" PRIX64, Utils::GetGameVersion());
         g_doomBaseAddr = GetModuleHandle(NULL);
         _LOG("Module base: %p", g_doomBaseAddr);
@@ -474,6 +618,7 @@ std::string wstring_to_utf8(const std::wstring& ws) {
         InitTriggerSettings();
 
         ApplyHooks();
+
 
 #if 0
 
