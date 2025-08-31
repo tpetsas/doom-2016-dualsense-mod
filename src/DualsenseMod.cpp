@@ -298,6 +298,40 @@ using _SelectWeaponByDeclExplicit =
                             char param_3, char param_4
                     );
 
+using _UpdateWeapon =
+                    void(__fastcall*) (void *player);
+
+// FUN_140277e90(&DAT_145be2f08,"ToggleMainMenu",FUN_140fac7a0,"Toggle the main menu",0,2);
+
+
+
+
+using MenuCtor_t   = void (__fastcall*)(void* self);
+using MenuDtor_t   = void (__fastcall*)(void* self);
+using MenuUpdate_t = void (__fastcall*)(void* self /*maybe*/, float /*maybe*/, void* /*ctx?*/);
+using MenuDraw_t   = void (__fastcall*)(void* self /*maybe*/, void* /*renderCtx?*/);
+using _EventTriggered =
+            void* (__fastcall*)(
+    void*        screenInfo,     // &DAT_145bedc20
+    const char*  screenName,     // "idMenuScreen_Start"
+    const char*  baseTypeName,   // "idMenuScreen"
+    uint32_t     sizeBytes,      // 0x1C0 in the snippet
+    uint8_t      flags,          // looked like 0 in my call
+    MenuCtor_t   ctor,           // FUN_140FC6060
+    MenuDtor_t   dtor,           // LAB_140FC3E90
+    MenuUpdate_t update,         // FUN_140FCA440
+    MenuDraw_t   draw,           // LAB_1415033F0
+    const uint32_t* initBlob,    // &uStack_28 (small init template)
+    void*        guardFunc       // _guard_check_icall (or similar)
+);
+
+using _LevelLoadCompleted =
+                    void (__fastcall*)(long long *this_idLoadScreen);
+using _MenumanagerShellActivate =
+                    void (__fastcall*)(long long param_1, uint32_t param_2);
+
+using _MenuScreenDossierMap =
+                    void (__fastcall*)(void);
 // handle to pointer resolution. It takes a 64-bit handle/id and returns a real
 // object pointer (FUN_14142C870)
 using _HandleToPointer  = Weapon* (__fastcall*)(uint64_t);
@@ -332,6 +366,27 @@ SelectWeapon (
 );
 _SelectWeapon SelectWeapon_Original = nullptr;
 
+RVA<_LevelLoadCompleted>
+LevelLoadCompleted (
+        "48 89 5c 24 08 48 89 74 24 10 57 48 83 ec 20 48 8b d9 48 8d 0d 3f 8d 1d 01 e8 e2 c6 c0 fe"
+);
+_LevelLoadCompleted LevelLoadCompleted_Original = nullptr;
+
+RVA<_MenumanagerShellActivate>
+MenumanagerShellActivate (
+    "48 8b c4 55 56 57 41 54 41 55 41 56 41 57 48 8d 68 a8 48 81 ec 20 01 00 00 48 c7 44 24 48 fe ff ff ff 48 89 58 18 0f 29 70 b8 48 8b 05 df d2 7a 04 48 33 c4 48 89 45 00 44 8b e2 48 8b d9 83 3d 1b 95 c4 04 00 0f 84 22 03 00 00 48 8d 05 fe 46 06 01 48 89 44 24 28 45 33 ed 4c 89 6c 24 40 4c 89 6c 24 38"
+);
+_MenumanagerShellActivate MenumanagerShellActivate_Original = nullptr;
+
+
+RVA<_MenuScreenDossierMap>
+MenuScreenDossierMap (
+    "4c 8b dc 48 81 ec a8 00 00 00 48 8d 05 bf 91 1b 01 41 b9 f8 01 00 00 49 89 43 b8 4c 8d 05 5e 78 14 02 33 c0 48 8d 15 85 65 2a 02"
+);
+_MenuScreenDossierMap MenuScreenDossierMap_Original = nullptr;
+
+
+
 // FUN_140e46970 noisy
 // FUN_140e446a0 loads all the weapons
 // FUN_140e44090 x
@@ -349,6 +404,17 @@ HandleToPointer (
     "40 53 48 83 ec 20 48 8b d9 48 85 c9 74 21 48 8b 01 ff 10 8b 48 68 3b 0d 0c 63 8b 04 7c 11 3b 0d 08 63 8b 04 7f 09 48 8b c3 48 83 c4 20 5b"
 );
 
+RVA<_UpdateWeapon>
+UpdateWeapon (
+    "40 55 53 57 48 8d ac 24 f0 fb ff ff 48 81 ec 10 05 00 00 48 8b 05 b6 f2 8f 04 48 33 c4 48 89 85 c0 03 00 00 48 8b f9 e8 e4 b8 f8 ff 48 8b 17 48 8b cf 48 8b d8 48 89 44 24 30 ff 92 c8 06 00 00 84 c0 74 1c 48 8d 8f 78 70 01 00 48 8b d3 e8 fd 51 f2 ff 48 8b cf e8 d5 fe ff ff e9 e8 13 00 00 8b 0d 42 87 d1 04 8b c1 48 89 b4 24 38 05 00 00 c1 e8 12 4c 89 a4 24 40 05 00 00 4c 89 b4 24 08 05 00 00 a8 01 74 1c 0f ba f1 12 83 3d de 86 d1 04 00 89 0d 10 87 d1 04 48 8b cf 0f 95 c2"
+);
+_UpdateWeapon UpdateWeapon_Original = nullptr;
+
+RVA<_EventTriggered>
+EventTriggered (
+    "48 89 4c 24 08 56 57 41 56 48 83 ec 30 48 c7 44 24 20 fe ff ff ff 48 89 5c 24 58 48 89 6c 24 60 41 8b f9 49 8b d8 48 8b ea 48 8b f1 45 33 f6 4c 89 b1 88 00 00 00 4c 89 71 70 4c 89 71 78 4c 89 b1 80 00 00 00 44 88 71 61 48 89 11 48 8d 15 3d 93 c9 00 48 8b cd e8 85 84 db fe 48 8b cb 85 c0 49 0f 44 ce 48 89 4e 08 48 8b 84 24 98 00 00 00 0f 10 00 0f 11 46 10 f2 0f 10 48 10 f2 0f 11 4e 20 48 8b 44 24 78 48 89 46 28 48 8b 84 24 80 00 00 00 48 89 46 30 48 8b 84 24 88 00 00 00 48 89 46 38 48 8b 84 24 90 00 00 00 48 89 46 40 48 8b 84 24 a0 00 00 00 48 89 46 48 48 8b cb e8 1e 02 00 00 48 89 46 50 0f b6 44 24 70"
+);
+_EventTriggered EventTriggered_Original = nullptr;
 
 // Utility functions
 
@@ -392,6 +458,15 @@ static void FindCurrWeaponHandle (Player *player) {
         // Now at any time: weapon = *(Weapon**)((uint8_t*)player + g_currWeaponOffset);
     }
 }
+
+#if 1
+static Weapon *GetCurrentWeaponAlter (Player *player) {
+    uint64_t h2  = *(uint64_t*)((uint8_t*)player + 0x9788);
+    void*    p2  = HandleToPointer(h2);
+    return (Weapon*)p2;
+}
+
+#endif
 
 static inline Weapon *GetCurrentWeapon (Player *player) {
     if (!player || !HandleToPointer) {
@@ -448,15 +523,36 @@ namespace DualsenseMod {
             HandleToPointer.GetUIntPtr()
         );
 
+        _LOG("UpdateWeapon at %p",
+            UpdateWeapon.GetUIntPtr()
+        );
+
+        _LOG("EventTriggered at %p",
+            EventTriggered.GetUIntPtr()
+        );
+
+        _LOG("LevelLoadCompleted at %p",
+            LevelLoadCompleted.GetUIntPtr()
+        );
+
+        _LOG("MenumanagerShellActivate at %p",
+            MenumanagerShellActivate.GetUIntPtr()
+        );
+
+
+        _LOG("MenuScreenDossierMap at %p",
+            MenuScreenDossierMap.GetUIntPtr()
+        );
+
         if (!g_doomBaseAddr) {
             _LOGD("DOOM base address is not set!");
             return false;
         }
 
         // resolve current weapon function address
-        auto doomBase   = reinterpret_cast<uint8_t*>(g_doomBaseAddr);
+        auto doomBase = reinterpret_cast<uint8_t*>(g_doomBaseAddr);
 
-        if (!OnWeaponSelected || !SelectWeapon || !SelectWeaponByDeclExplicit || !HandleToPointer)
+        if (!OnWeaponSelected || !SelectWeapon || !SelectWeaponByDeclExplicit || !HandleToPointer || !EventTriggered || !LevelLoadCompleted || !MenumanagerShellActivate || !MenuScreenDossierMap)
             return false;
 
         return true;
@@ -472,7 +568,6 @@ namespace DualsenseMod {
         _LOGD("Adaptive Triggers reset successfully!");
     }
 
-
     void OnWeaponSelected_Hook(void *player, long long *weapon) {
         _LOGD("* OnWeaponSelected hook!!!");
 
@@ -485,6 +580,27 @@ namespace DualsenseMod {
         // XXX uncomment to find the idPlayer's current weapon handler
         //FindCurrWeaponHandle((Player *) player);
 
+        //Weapon *w = GetCurrentWeaponAlter(player);
+        //_LOGD("* Startup weapon: %s", GetWeaponName((long long *)w));
+
+        return;
+    }
+
+    void UpdateWeapon_Hook (void *player) {
+        //_LOGD("* idPlayer::UpdateWeapon hook!!!");
+
+        if (!g_currWeapon) {
+            Weapon* weapon = GetCurrentWeaponAlter(player); // uses 0x9788 + HandleToPointer
+            if (weapon) {
+                const char* name = GetWeaponName(reinterpret_cast<long long*>(weapon));
+                if (name && name[0]) {
+                    g_currWeapon = weapon;
+                    _LOGD("* Startup weapon: %s", name);
+                }
+            }
+        }
+
+        UpdateWeapon_Original(player);
         return;
     }
 
@@ -499,20 +615,58 @@ namespace DualsenseMod {
     unsigned long long SelectWeaponByDeclExplicit_Hook(long long *player,
                                 long long param_2, char param_3, char param_4) {
         _LOGD("* idPlayer::SelectWeaponByDeclExplicit hook!!!");
+        unsigned long long ret = SelectWeaponByDeclExplicit_Original(player, param_2, param_3, param_4);
 
-        if (g_currPlayer == nullptr) {
-            g_currPlayer = player;
-            _LOGD("* Set current player addr: 0x%p", g_currPlayer);
-
-            // Get current equipped weapon so we can send out our first
-            // trigger effect profile
-            Weapon *weapon = GetCurrentWeapon(g_currPlayer);
-            _LOGD("* Startup weapon: %s", GetWeaponName((long long *)weapon));
-        }
-        return SelectWeaponByDeclExplicit_Original(player, param_2, param_3, param_4);
-
+            Weapon* weapon = GetCurrentWeaponAlter(player); // uses 0x9788 + HandleToPointer
+            if (weapon) {
+                const char* name = GetWeaponName(reinterpret_cast<long long*>(weapon));
+                if (name && name[0]) {
+                    g_currWeapon = weapon;
+                    _LOGD("* Startup weapon: %s", name);
+                }
+            }
+        return ret;
     }
 
+    void* EventTriggered_Hook(
+    void*        screenInfo,     // &DAT_145bedc20
+    const char*  screenName,     // "idMenuScreen_Start"
+    const char*  baseTypeName,   // "idMenuScreen"
+    uint32_t     sizeBytes,      // 0x1C0 in the snippet
+    uint8_t      flags,          // looked like 0 in my call
+    MenuCtor_t   ctor,           // FUN_140FC6060
+    MenuDtor_t   dtor,           // LAB_140FC3E90
+    MenuUpdate_t update,         // FUN_140FCA440
+    MenuDraw_t   draw,           // LAB_1415033F0
+    const uint32_t* initBlob,    // &uStack_28 (small init template)
+    void*        guardFunc       // _guard_check_icall (or similar)
+    ){
+        _LOGD("* EventTriggered hook!");
+        //_LOGD("event screen method: %s, screen name: %s, screenName, baseTypeName);
+        return EventTriggered_Original(screenInfo, screenName, baseTypeName,
+                sizeBytes, flags, ctor, dtor, update, draw, initBlob,
+                guardFunc);
+    }
+
+    void LevelLoadCompleted_Hook (long long *this_idLoadScreen) {
+        _LOGD("idLoadScreen::LevelLoadCompleted hook!");
+        LevelLoadCompleted_Original(this_idLoadScreen);
+        return;
+    }
+
+
+    void MenumanagerShellActivate_Hook (long long param_1, uint32_t param_2) {
+        _LOGD("idMenuManager_Shell::Activate hook!");
+        MenumanagerShellActivate_Original(param_1, param_2);
+        return;
+    }
+
+
+    void MenuScreenDossierMap_Hook (void) {
+        _LOGD("idMenuScreen_Dossier_Map hook!");
+        MenuScreenDossierMap_Original();
+        return;
+    }
 
     bool ApplyHooks() {
         _LOG("Applying hooks...");
@@ -539,7 +693,6 @@ namespace DualsenseMod {
             return false;
         }
 
-
         MH_CreateHook (
             SelectWeaponByDeclExplicit,
             SelectWeaponByDeclExplicit_Hook,
@@ -547,6 +700,58 @@ namespace DualsenseMod {
         );
         if (MH_EnableHook(SelectWeaponByDeclExplicit) != MH_OK) {
             _LOG("FATAL: Failed to install SelectWeaponByDeclExplicit hook.");
+            return false;
+        }
+
+        MH_CreateHook (
+            UpdateWeapon,
+            UpdateWeapon_Hook,
+            reinterpret_cast<LPVOID *>(&UpdateWeapon_Original)
+        );
+        if (MH_EnableHook(UpdateWeapon) != MH_OK) {
+            _LOG("FATAL: Failed to install UpdateWeapon hook.");
+            return false;
+        }
+
+        MH_CreateHook (
+            EventTriggered,
+            EventTriggered_Hook,
+            reinterpret_cast<LPVOID *>(&EventTriggered_Original)
+        );
+        if (MH_EnableHook(EventTriggered) != MH_OK) {
+            _LOG("FATAL: Failed to install EventTriggered hook.");
+            return false;
+        }
+
+
+        MH_CreateHook (
+            LevelLoadCompleted,
+            LevelLoadCompleted_Hook,
+            reinterpret_cast<LPVOID *>(&LevelLoadCompleted_Original)
+        );
+        if (MH_EnableHook(LevelLoadCompleted) != MH_OK) {
+            _LOG("FATAL: Failed to install LevelLoadCompleted hook.");
+            return false;
+        }
+
+
+        MH_CreateHook (
+            MenumanagerShellActivate,
+            MenumanagerShellActivate_Hook,
+            reinterpret_cast<LPVOID *>(&MenumanagerShellActivate_Original)
+        );
+        if (MH_EnableHook(MenumanagerShellActivate) != MH_OK) {
+            _LOG("FATAL: Failed to install MenumanagerShellActivate hook.");
+            return false;
+        }
+
+        MH_CreateHook (
+            MenuScreenDossierMap,
+            MenuScreenDossierMap_Hook,
+            reinterpret_cast<LPVOID *>(&MenuScreenDossierMap_Original)
+        );
+        if (MH_EnableHook(MenuScreenDossierMap) != MH_OK) {
+            _LOG("FATAL: Failed to install MenuScreenDossierMap hook.");
             return false;
         }
 
@@ -618,6 +823,30 @@ std::string wstring_to_utf8(const std::wstring& ws) {
         InitTriggerSettings();
 
         ApplyHooks();
+#if 0
+        std::thread([]{
+    for (;;) {
+        // wait for player to be captured by your SelectWeaponByDeclExplicit hook
+        auto player = g_currPlayer;
+        if (!player) { Sleep(10); continue; }
+
+        // optional: make sure resolver is ready
+        if (!HandleToPointer) { Sleep(10); continue; }
+
+        // read handle@player+0x9788 -> Weapon*
+        Weapon* weapon = GetCurrentWeaponAlter(player); // uses 0x9788 + HandleToPointer
+        if (weapon) {
+            const char* name = GetWeaponName(reinterpret_cast<long long*>(weapon));
+            if (name && name[0]) {
+                g_currWeapon = weapon;
+                _LOGD("* Startup weapon: %s", name);
+                break; // done
+            }
+        }
+        Sleep(10);
+    }
+}).detach();
+#endif
 
 
 #if 0
