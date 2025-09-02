@@ -332,6 +332,27 @@ using _MenumanagerShellActivate =
 
 using _MenuScreenDossierMap =
                     void (__fastcall*)(void);
+
+using _EventIdFromName =
+                    void (__fastcall*)(void *eventSystem, const char *eventName);
+
+
+using _EventReceived =
+                    void *(__fastcall*)(
+    void**        declOut,   // param_1: output/target decl object (written in-place, returned)
+    uint32_t      eventId,   // param_2: 32-bit id/hash (written at +0x3C)
+    const char*   name,      // param_3: event name (stored at slot [0])
+    uint32_t      flags,     // param_4: 32-bit flags (stored at +0x38)
+    const char*   argSig,    // param_5: signature string; if null, engine uses empty string
+    const void*   a6,        // param_6: stored at slot [2]
+    const void*   a7,        // param_7: stored at slot [3]
+    const void*   a8,        // param_8: stored at slot [4]
+    bool          isGlobal,  // param_9: stored into 4 bytes at slot [5] (as int)
+    const void*   a10,       // param_10: stored at slot [8]
+    const void*   a11,       // param_11: stored at slot [9]
+    const void*   a12        // param_12: stored at slot [10]
+);
+
 // handle to pointer resolution. It takes a 64-bit handle/id and returns a real
 // object pointer (FUN_14142C870)
 using _HandleToPointer  = Weapon* (__fastcall*)(uint64_t);
@@ -384,6 +405,18 @@ MenuScreenDossierMap (
     "4c 8b dc 48 81 ec a8 00 00 00 48 8d 05 bf 91 1b 01 41 b9 f8 01 00 00 49 89 43 b8 4c 8d 05 5e 78 14 02 33 c0 48 8d 15 85 65 2a 02"
 );
 _MenuScreenDossierMap MenuScreenDossierMap_Original = nullptr;
+
+RVA<_EventIdFromName>
+EventIdFromName (
+    "40 57 48 83 ec 70 48 c7 44 24 28 fe ff ff ff 48 89 9c 24 90 00 00 00 48 8b 05 02 f0 ff 03 48 33 c4 48 89 44 24 60"
+);
+_EventIdFromName EventIdFromName_Original = nullptr;
+
+RVA<_EventReceived>
+EventReceived (
+    "48 89 5c 24 08 48 89 6c 24 10 48 89 74 24 18 48 89 7c 24 20 41 56 48 83 ec 30 48 8b 84 24 98 00 00 00 48 8d 3d 9f 0a 4a 01 0f be 9c 24 80 00 00 00 49 8b f0"
+);
+_EventReceived EventReceived_Original = nullptr;
 
 
 
@@ -539,9 +572,16 @@ namespace DualsenseMod {
             MenumanagerShellActivate.GetUIntPtr()
         );
 
-
         _LOG("MenuScreenDossierMap at %p",
             MenuScreenDossierMap.GetUIntPtr()
+        );
+
+        _LOG("EventIdFromName at %p",
+            EventIdFromName.GetUIntPtr()
+        );
+
+        _LOG("EventReceived at %p",
+            EventReceived.GetUIntPtr()
         );
 
         if (!g_doomBaseAddr) {
@@ -552,7 +592,7 @@ namespace DualsenseMod {
         // resolve current weapon function address
         auto doomBase = reinterpret_cast<uint8_t*>(g_doomBaseAddr);
 
-        if (!OnWeaponSelected || !SelectWeapon || !SelectWeaponByDeclExplicit || !HandleToPointer || !EventTriggered || !LevelLoadCompleted || !MenumanagerShellActivate || !MenuScreenDossierMap)
+        if (!OnWeaponSelected || !SelectWeapon || !SelectWeaponByDeclExplicit || !HandleToPointer || !EventTriggered || !LevelLoadCompleted || !MenumanagerShellActivate || !MenuScreenDossierMap || !EventIdFromName || !EventReceived)
             return false;
 
         return true;
@@ -586,6 +626,7 @@ namespace DualsenseMod {
         return;
     }
 
+    void FSM(const char *eventName);
     void UpdateWeapon_Hook (void *player) {
         //_LOGD("* idPlayer::UpdateWeapon hook!!!");
 
@@ -595,7 +636,8 @@ namespace DualsenseMod {
                 const char* name = GetWeaponName(reinterpret_cast<long long*>(weapon));
                 if (name && name[0]) {
                     g_currWeapon = weapon;
-                    _LOGD("* Startup weapon: %s", name);
+                    _LOGD("*** Startup weapon: %s", name);
+                    FSM("GameStarted");
                 }
             }
         }
@@ -648,12 +690,6 @@ namespace DualsenseMod {
                 guardFunc);
     }
 
-    void LevelLoadCompleted_Hook (long long *this_idLoadScreen) {
-        _LOGD("idLoadScreen::LevelLoadCompleted hook!");
-        LevelLoadCompleted_Original(this_idLoadScreen);
-        return;
-    }
-
 
     void MenumanagerShellActivate_Hook (long long param_1, uint32_t param_2) {
         _LOGD("idMenuManager_Shell::Activate hook!");
@@ -665,6 +701,97 @@ namespace DualsenseMod {
     void MenuScreenDossierMap_Hook (void) {
         _LOGD("idMenuScreen_Dossier_Map hook!");
         MenuScreenDossierMap_Original();
+        return;
+    }
+
+    // util
+    bool startsWith(const char* s, const char* prefix) {
+        if (!s || !prefix) return false;
+        const size_t m = std::strlen(prefix);
+        return !std::strncmp(s, prefix, m);
+    }
+
+    enum class GameState : uint8_t {
+        Idle,       // Game hasn't started yet
+        InGame,     // Gameplay is on
+        Paused      // Game is paused
+    };
+
+    static std::atomic<GameState> g_state{GameState::Idle};
+
+    void FSM(const char *eventName) {
+        switch(g_state) {
+            case GameState::Idle:
+                // idle state can be changed only from UpdateWeapon hook
+                if (startsWith(eventName, "GameStarted")) {
+                    g_state.store(GameState::InGame, std::memory_order_release);
+                    _LOGD("* Game started!");
+                    // enable triggers
+                }
+                break;
+            case GameState::InGame:
+                if (startsWith(eventName, "off")) {
+                    g_state.store(GameState::Idle, std::memory_order_release);
+                    _LOGD("* Player died! Switching to Idle state...");
+                    g_currWeapon = nullptr;
+                    // disable triggers
+                } else if (startsWith(eventName, "select")) {
+                    g_state.store(GameState::Paused, std::memory_order_release);
+                    _LOGD("* Game paused!");
+                    g_currWeapon = nullptr;
+                    // disable triggers
+                }
+                break;
+            case GameState::Paused:
+                if (startsWith(eventName, "off")) {
+                    g_state.store(GameState::Idle, std::memory_order_release);
+                    _LOGD("* Rare, but game ended! Switching to Idle state...");
+                    g_currWeapon = nullptr;
+                    // disable triggers
+                } else if (startsWith(eventName, "on")) {
+
+                    g_state.store(GameState::InGame, std::memory_order_release);
+                    _LOGD("* Back in game again!");
+                    // enable triggers
+                }
+                break;
+            default:
+                _LOG("* Unsupported state! How did we get there?!");
+        }
+    }
+
+    void EventIdFromName_Hook (void *eventSystem, const char *eventName) {
+        //_LOGD("EventIdFromName hook, event name: %s", eventName);
+        FSM(eventName);
+        EventIdFromName_Original(eventSystem, eventName);
+        return;
+    }
+
+
+
+    void *EventReceived_Hook(
+        void**        declOut,   // param_1: output/target decl object (written in-place, returned)
+        uint32_t      eventId,   // param_2: 32-bit id/hash (written at +0x3C)
+        const char*   name,      // param_3: event name (stored at slot [0])
+        uint32_t      flags,     // param_4: 32-bit flags (stored at +0x38)
+        const char*   argSig,    // param_5: signature string; if null, engine uses empty string
+        const void*   a6,        // param_6: stored at slot [2]
+        const void*   a7,        // param_7: stored at slot [3]
+        const void*   a8,        // param_8: stored at slot [4]
+        bool          isGlobal,  // param_9: stored into 4 bytes at slot [5] (as int)
+        const void*   a10,       // param_10: stored at slot [8]
+        const void*   a11,       // param_11: stored at slot [9]
+        const void*   a12        // param_12: stored at slot [10]
+    ) {
+        _LOGD("EventReceived hook, event name: %s", name);
+        return EventReceived_Original(declOut, eventId, name, flags, argSig, a6, a7, a8, isGlobal, a10, a11, a12);
+    }
+
+    //static bool eventHookSet = false;
+
+    void LevelLoadCompleted_Hook (long long *this_idLoadScreen) {
+        _LOGD("idLoadScreen::LevelLoadCompleted hook!");
+        LevelLoadCompleted_Original(this_idLoadScreen);
         return;
     }
 
@@ -750,8 +877,29 @@ namespace DualsenseMod {
             MenuScreenDossierMap_Hook,
             reinterpret_cast<LPVOID *>(&MenuScreenDossierMap_Original)
         );
+
         if (MH_EnableHook(MenuScreenDossierMap) != MH_OK) {
             _LOG("FATAL: Failed to install MenuScreenDossierMap hook.");
+            return false;
+        }
+
+        MH_CreateHook (
+            EventIdFromName,
+            EventIdFromName_Hook,
+            reinterpret_cast<LPVOID *>(&EventIdFromName_Original)
+        );
+        if (MH_EnableHook(EventIdFromName) != MH_OK) {
+            _LOG("FATAL: Failed to install EventIdFromName hook.");
+            return false;
+        }
+
+        MH_CreateHook (
+            EventReceived,
+            EventReceived_Hook,
+            reinterpret_cast<LPVOID *>(&EventReceived_Original)
+        );
+        if (MH_EnableHook(EventReceived) != MH_OK) {
+            _LOG("FATAL: Failed to install EventReceived hook.");
             return false;
         }
 
