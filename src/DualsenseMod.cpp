@@ -280,7 +280,13 @@ static Weapon *g_currWeapon = nullptr;
 
 static Player *g_currPlayer = nullptr;
 
+enum class GameState : uint8_t {
+    Idle,       // Game hasn't started yet
+    InGame,     // Gameplay is on
+    Paused      // Game is paused
+};
 
+static std::atomic<GameState> g_state{GameState::Idle};
 
 // Game functions
 using _OnWeaponSelected =
@@ -301,10 +307,19 @@ using _SelectWeaponByDeclExplicit =
 using _UpdateWeapon =
                     void(__fastcall*) (void *player);
 
-// FUN_140277e90(&DAT_145be2f08,"ToggleMainMenu",FUN_140fac7a0,"Toggle the main menu",0,2);
 
+using _Damage = void(__fastcall*)(
+    void* player,           // param_1  (idPlayer*)
+    void* inflictor,        // param_2  (idEntity*, may be null)
+    void* attacker,         // param_3  (idEntity*, may be player or null)
+    long long damageDecl,   // param_4  (idDecl* / damage parms blob)
+    float damageScale,      // param_5
+    const float* dir,       // param_6  (vec3*, may be null)
+    const float* hitInfo    // param_7  (misc hit/joint info, may be null)
+);
 
-
+// Virtual: bool idPlayer::IsDead() const;  // found at vtable + 0x6C8
+using _IsDead = bool(__fastcall*)(void* player);
 
 using MenuCtor_t   = void (__fastcall*)(void* self);
 using MenuDtor_t   = void (__fastcall*)(void* self);
@@ -336,22 +351,6 @@ using _MenuScreenDossierMap =
 using _EventIdFromName =
                     void (__fastcall*)(void *eventSystem, const char *eventName);
 
-
-using _EventReceived =
-                    void *(__fastcall*)(
-    void**        declOut,   // param_1: output/target decl object (written in-place, returned)
-    uint32_t      eventId,   // param_2: 32-bit id/hash (written at +0x3C)
-    const char*   name,      // param_3: event name (stored at slot [0])
-    uint32_t      flags,     // param_4: 32-bit flags (stored at +0x38)
-    const char*   argSig,    // param_5: signature string; if null, engine uses empty string
-    const void*   a6,        // param_6: stored at slot [2]
-    const void*   a7,        // param_7: stored at slot [3]
-    const void*   a8,        // param_8: stored at slot [4]
-    bool          isGlobal,  // param_9: stored into 4 bytes at slot [5] (as int)
-    const void*   a10,       // param_10: stored at slot [8]
-    const void*   a11,       // param_11: stored at slot [9]
-    const void*   a12        // param_12: stored at slot [10]
-);
 
 // handle to pointer resolution. It takes a 64-bit handle/id and returns a real
 // object pointer (FUN_14142C870)
@@ -412,13 +411,20 @@ EventIdFromName (
 );
 _EventIdFromName EventIdFromName_Original = nullptr;
 
-RVA<_EventReceived>
-EventReceived (
-    "48 89 5c 24 08 48 89 6c 24 10 48 89 74 24 18 48 89 7c 24 20 41 56 48 83 ec 30 48 8b 84 24 98 00 00 00 48 8d 3d 9f 0a 4a 01 0f be 9c 24 80 00 00 00 49 8b f0"
+RVA<_Damage>
+Damage (
+    "48 8b c4 55 53 56 57 41 54 41 55 41 56 41 57 48 8d a8 18 f2 ff ff 48 81 ec a8 0e 00 00 48 c7 45 e0 fe ff ff ff 0f 29 70 a8 0f 29 78 98 44 0f 29 40 88"
 );
-_EventReceived EventReceived_Original = nullptr;
+_Damage Damage_Original = nullptr;
 
 
+
+// Check weapon mod
+// FUN_140f11670
+// 48 83 ec 08 4c 8b d1 4c 8b da 48 63 89 d4 08 00 00 83 f9 ff 8b d1 4d 8b 4a 30 0f 44 d1
+
+//140b44840
+//48 89 5c 24 08 48 89 6c 24 10 48 89 74 24 18 48 89 7c 24 20 41 56 48 83 ec 30 48 8b 84 24 98 00 00 00
 
 // FUN_140e46970 noisy
 // FUN_140e446a0 loads all the weapons
@@ -560,6 +566,10 @@ namespace DualsenseMod {
             UpdateWeapon.GetUIntPtr()
         );
 
+        _LOG("Damage at %p",
+            Damage.GetUIntPtr()
+        );
+
         _LOG("EventTriggered at %p",
             EventTriggered.GetUIntPtr()
         );
@@ -580,10 +590,6 @@ namespace DualsenseMod {
             EventIdFromName.GetUIntPtr()
         );
 
-        _LOG("EventReceived at %p",
-            EventReceived.GetUIntPtr()
-        );
-
         if (!g_doomBaseAddr) {
             _LOGD("DOOM base address is not set!");
             return false;
@@ -592,7 +598,7 @@ namespace DualsenseMod {
         // resolve current weapon function address
         auto doomBase = reinterpret_cast<uint8_t*>(g_doomBaseAddr);
 
-        if (!OnWeaponSelected || !SelectWeapon || !SelectWeaponByDeclExplicit || !HandleToPointer || !EventTriggered || !LevelLoadCompleted || !MenumanagerShellActivate || !MenuScreenDossierMap || !EventIdFromName || !EventReceived)
+        if (!OnWeaponSelected || !SelectWeapon || !SelectWeaponByDeclExplicit || !HandleToPointer || !EventTriggered || !LevelLoadCompleted || !MenumanagerShellActivate || !MenuScreenDossierMap || !EventIdFromName)
             return false;
 
         return true;
@@ -636,8 +642,6 @@ namespace DualsenseMod {
                 const char* name = GetWeaponName(reinterpret_cast<long long*>(weapon));
                 if (name && name[0]) {
                     g_currWeapon = weapon;
-                    _LOGD("*** Startup weapon: %s", name);
-                    FSM("GameStarted");
                 }
             }
         }
@@ -645,6 +649,51 @@ namespace DualsenseMod {
         UpdateWeapon_Original(player);
         return;
     }
+
+// optional global flag for your mod
+static std::atomic<bool> g_PlayerDead{false};
+
+static inline bool CallIsDead(void* player)
+{
+    // vtable-based call to function pointer at offset 0x6C8
+    auto** vtbl = reinterpret_cast<uintptr_t**>(player);
+    auto addr   = *vtbl ? *vtbl : nullptr;
+    if (!addr) return false;
+
+    auto fnPtr = *reinterpret_cast<uintptr_t*>(reinterpret_cast<uint8_t*>(*vtbl) + 0x6C8);
+    if (!fnPtr) return false;
+
+    auto IsDead = reinterpret_cast<_IsDead>(fnPtr);
+    return IsDead(player);
+}
+
+void Damage_Hook(
+    void* player,
+    void* inflictor,
+    void* attacker,
+    long long damageDecl,
+    float damageScale,
+    const float* dir,
+    const float* hitInfo)
+{
+    //_LOGD("* Damage hook!");
+    // 1) state before damage is applied
+    const bool wasDead = CallIsDead(player);
+
+    // 2) let the game apply damage
+    Damage_Original(player, inflictor, attacker, damageDecl, damageScale, dir, hitInfo);
+
+    // 3) state after damage
+    const bool isDead = CallIsDead(player);
+
+    // 4) rising edge detection: alive -> dead
+    if (!wasDead && isDead)
+    {
+        g_state.store(GameState::Idle, std::memory_order_release);
+        g_currWeapon = nullptr;
+        _LOGD("* Damage hook, Player is DEAD! Switching to Idle state...");
+    }
+}
 
     uint64_t *SelectWeapon_Hook(long long *param_1, long long *param_2, long long *param_3, uint8_t param_4) {
         _LOGD("* idPlayer::SelectWeapon hook!!!");
@@ -711,18 +760,10 @@ namespace DualsenseMod {
         return !std::strncmp(s, prefix, m);
     }
 
-    enum class GameState : uint8_t {
-        Idle,       // Game hasn't started yet
-        InGame,     // Gameplay is on
-        Paused      // Game is paused
-    };
-
-    static std::atomic<GameState> g_state{GameState::Idle};
-
     void FSM(const char *eventName) {
         switch(g_state) {
             case GameState::Idle:
-                // idle state can be changed only from UpdateWeapon hook
+                // idle state can be changed only from LevelLoadCompleted hook
                 if (startsWith(eventName, "GameStarted")) {
                     g_state.store(GameState::InGame, std::memory_order_release);
                     _LOGD("* Game started!");
@@ -731,9 +772,11 @@ namespace DualsenseMod {
                 break;
             case GameState::InGame:
                 if (startsWith(eventName, "off")) {
-                    g_state.store(GameState::Idle, std::memory_order_release);
-                    _LOGD("* Player died! Switching to Idle state...");
-                    g_currWeapon = nullptr;
+                    // skip this state
+                    ;
+                    //g_state.store(GameState::Idle, std::memory_order_release);
+                    //_LOGD("* Player died! Switching to Idle state...");
+                    //g_currWeapon = nullptr;
                     // disable triggers
                 } else if (startsWith(eventName, "select")) {
                     g_state.store(GameState::Paused, std::memory_order_release);
@@ -749,7 +792,6 @@ namespace DualsenseMod {
                     g_currWeapon = nullptr;
                     // disable triggers
                 } else if (startsWith(eventName, "on")) {
-
                     g_state.store(GameState::InGame, std::memory_order_release);
                     _LOGD("* Back in game again!");
                     // enable triggers
@@ -767,30 +809,11 @@ namespace DualsenseMod {
         return;
     }
 
-
-
-    void *EventReceived_Hook(
-        void**        declOut,   // param_1: output/target decl object (written in-place, returned)
-        uint32_t      eventId,   // param_2: 32-bit id/hash (written at +0x3C)
-        const char*   name,      // param_3: event name (stored at slot [0])
-        uint32_t      flags,     // param_4: 32-bit flags (stored at +0x38)
-        const char*   argSig,    // param_5: signature string; if null, engine uses empty string
-        const void*   a6,        // param_6: stored at slot [2]
-        const void*   a7,        // param_7: stored at slot [3]
-        const void*   a8,        // param_8: stored at slot [4]
-        bool          isGlobal,  // param_9: stored into 4 bytes at slot [5] (as int)
-        const void*   a10,       // param_10: stored at slot [8]
-        const void*   a11,       // param_11: stored at slot [9]
-        const void*   a12        // param_12: stored at slot [10]
-    ) {
-        _LOGD("EventReceived hook, event name: %s", name);
-        return EventReceived_Original(declOut, eventId, name, flags, argSig, a6, a7, a8, isGlobal, a10, a11, a12);
-    }
-
-    //static bool eventHookSet = false;
-
     void LevelLoadCompleted_Hook (long long *this_idLoadScreen) {
         _LOGD("idLoadScreen::LevelLoadCompleted hook!");
+        if (g_currWeapon) {
+            FSM("GameStarted");
+        }
         LevelLoadCompleted_Original(this_idLoadScreen);
         return;
     }
@@ -837,6 +860,16 @@ namespace DualsenseMod {
         );
         if (MH_EnableHook(UpdateWeapon) != MH_OK) {
             _LOG("FATAL: Failed to install UpdateWeapon hook.");
+            return false;
+        }
+
+        MH_CreateHook (
+            Damage,
+            Damage_Hook,
+            reinterpret_cast<LPVOID *>(&Damage_Original)
+        );
+        if (MH_EnableHook(Damage) != MH_OK) {
+            _LOG("FATAL: Failed to install Damage hook.");
             return false;
         }
 
@@ -890,16 +923,6 @@ namespace DualsenseMod {
         );
         if (MH_EnableHook(EventIdFromName) != MH_OK) {
             _LOG("FATAL: Failed to install EventIdFromName hook.");
-            return false;
-        }
-
-        MH_CreateHook (
-            EventReceived,
-            EventReceived_Hook,
-            reinterpret_cast<LPVOID *>(&EventReceived_Original)
-        );
-        if (MH_EnableHook(EventReceived) != MH_OK) {
-            _LOG("FATAL: Failed to install EventReceived hook.");
             return false;
         }
 
