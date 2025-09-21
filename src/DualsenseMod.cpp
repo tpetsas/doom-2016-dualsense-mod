@@ -352,6 +352,9 @@ using _EventIdFromName =
                     void (__fastcall*)(void *eventSystem, const char *eventName);
 
 
+using _UpdateAmmo =
+                    int (__fastcall *)(void *ammo, int delta, char clamp);
+
 // handle to pointer resolution. It takes a 64-bit handle/id and returns a real
 // object pointer (FUN_14142C870)
 using _HandleToPointer  = Weapon* (__fastcall*)(uint64_t);
@@ -455,6 +458,12 @@ EventTriggered (
 );
 _EventTriggered EventTriggered_Original = nullptr;
 
+RVA<_UpdateAmmo>
+UpdateAmmo(
+    "48 89 5c 24 08 48 89 74 24 10 57 48 83 ec 20 33 ff 48 8b d9 45 84 c0 74 08 39 79 38"
+);
+_UpdateAmmo UpdateAmmo_Original = nullptr;
+
 // Utility functions
 
 static inline uint32_t GetPlayerState(Player* player) {
@@ -504,7 +513,6 @@ static Weapon *GetCurrentWeaponAlter (Player *player) {
     void*    p2  = HandleToPointer(h2);
     return (Weapon*)p2;
 }
-
 #endif
 
 static inline Weapon *GetCurrentWeapon (Player *player) {
@@ -524,6 +532,29 @@ static inline Weapon *GetCurrentWeapon (Player *player) {
     }
 
     return HandleToPointer(handle);
+}
+
+static size_t g_weapon_to_ammo = 0;   // discovered at runtime
+static size_t g_ammo_to_count = 0x38; // from your write site; adjust if you see 0x34/0x3C
+
+void TryDeriveWeaponToAmmoOffset(void* weapon, void* ammo_from_hook) {
+    if (!weapon || !ammo_from_hook || g_weapon_to_ammo) return;
+    // brute-force scan the first 0x800 bytes on 8-byte boundaries
+    for (size_t off = 0; off < 0x8000; off += 8) {
+        void* cand = *(void**)((uint8_t*)weapon + off);
+        if (cand == ammo_from_hook) {
+            g_weapon_to_ammo = off;
+            _LOGD("* Found weapon ammo offset: %u", g_weapon_to_ammo);
+            break;
+        }
+    }
+    _LOGD("* Could not find weapon ammo offset!");
+}
+
+int ReadAmmoFromWeapon(void* weapon) {
+    if (!weapon || !g_weapon_to_ammo) return -1;
+    auto ammo = *(uint8_t**)((uint8_t*)weapon + g_weapon_to_ammo);
+    return ammo ? *(int*)(ammo + g_ammo_to_count) : -1;
 }
 
 // Globals
@@ -566,6 +597,10 @@ namespace DualsenseMod {
             UpdateWeapon.GetUIntPtr()
         );
 
+        _LOG("UpdateAmmo at %p",
+            UpdateAmmo.GetUIntPtr()
+        );
+
         _LOG("Damage at %p",
             Damage.GetUIntPtr()
         );
@@ -598,7 +633,7 @@ namespace DualsenseMod {
         // resolve current weapon function address
         auto doomBase = reinterpret_cast<uint8_t*>(g_doomBaseAddr);
 
-        if (!OnWeaponSelected || !SelectWeapon || !SelectWeaponByDeclExplicit || !HandleToPointer || !EventTriggered || !LevelLoadCompleted || !MenumanagerShellActivate || !MenuScreenDossierMap || !EventIdFromName)
+        if (!OnWeaponSelected || !SelectWeapon || !SelectWeaponByDeclExplicit || !HandleToPointer || !EventTriggered || !LevelLoadCompleted || !MenumanagerShellActivate || !MenuScreenDossierMap || !EventIdFromName || !UpdateWeapon || !UpdateAmmo)
             return false;
 
         return true;
@@ -620,6 +655,7 @@ namespace DualsenseMod {
         if (weapon != nullptr) {
             char *weaponName =  GetWeaponName(weapon);
             _LOGD("idPlayer::OnWeaponSelected - newWeapon = %s\n", weaponName);
+            g_currWeapon = weapon;
         }
         OnWeaponSelected_Original(player, weapon);
 
@@ -634,21 +670,40 @@ namespace DualsenseMod {
 
     void FSM(const char *eventName);
     void UpdateWeapon_Hook (void *player) {
-        //_LOGD("* idPlayer::UpdateWeapon hook!!!");
 
+        if (!g_currPlayer) {
+            _LOGD("* set idPlayer!");
+            g_currPlayer = player;
+        }
+#if 0
         if (!g_currWeapon) {
             Weapon* weapon = GetCurrentWeaponAlter(player); // uses 0x9788 + HandleToPointer
             if (weapon) {
                 const char* name = GetWeaponName(reinterpret_cast<long long*>(weapon));
                 if (name && name[0]) {
+                    _LOGD("* idPlayer::UpdateWeapon hook - curr weapon: %s", name);
                     g_currWeapon = weapon;
                 }
             }
         }
+#endif
 
         UpdateWeapon_Original(player);
         return;
     }
+
+
+int UpdateAmmo_Hook (void *ammo, int delta, char clamp) {
+    int ret = UpdateAmmo_Original(ammo, delta, clamp);
+    int* pCount = (int*)((uint8_t*)ammo + 0x38);
+    int  count  = *pCount;
+    _LOGD("* UpdateAmmo hook! AMMO: %d", count);
+#if 0
+    if (!g_weapon_to_ammo)
+        TryDeriveWeaponToAmmoOffset(g_currWeapon, ammo);
+#endif
+    return ret;
+}
 
 // optional global flag for your mod
 static std::atomic<bool> g_PlayerDead{false};
@@ -707,15 +762,9 @@ void Damage_Hook(
                                 long long param_2, char param_3, char param_4) {
         _LOGD("* idPlayer::SelectWeaponByDeclExplicit hook!!!");
         unsigned long long ret = SelectWeaponByDeclExplicit_Original(player, param_2, param_3, param_4);
-
-            Weapon* weapon = GetCurrentWeaponAlter(player); // uses 0x9788 + HandleToPointer
-            if (weapon) {
-                const char* name = GetWeaponName(reinterpret_cast<long long*>(weapon));
-                if (name && name[0]) {
-                    g_currWeapon = weapon;
-                    _LOGD("* Startup weapon: %s", name);
-                }
-            }
+        // reset player here
+        if (g_currPlayer)
+            g_currPlayer = nullptr;
         return ret;
     }
 
@@ -767,6 +816,21 @@ void Damage_Hook(
                 if (startsWith(eventName, "GameStarted")) {
                     g_state.store(GameState::InGame, std::memory_order_release);
                     _LOGD("* Game started!");
+                    if (g_currPlayer) {
+                        _LOGD("  - idPlayer already set. Check for current weapon...");
+                        // TODO: create a function that does that
+                        Weapon* weapon = GetCurrentWeaponAlter(g_currPlayer);
+                        if (weapon) {
+                            const char* name = GetWeaponName(reinterpret_cast<long long*>(weapon));
+                            if (name && name[0]) {
+                                _LOGD("* curr weapon: %s", name);
+                                g_currWeapon = weapon;
+                            }
+                        } else {
+                                _LOGD("* curr weapon: (not found!)");
+                        }
+                    }
+
                     // enable triggers
                 }
                 break;
@@ -780,8 +844,8 @@ void Damage_Hook(
                     // disable triggers
                 } else if (startsWith(eventName, "select")) {
                     g_state.store(GameState::Paused, std::memory_order_release);
-                    _LOGD("* Game paused!");
-                    g_currWeapon = nullptr;
+                    if (g_currPlayer)
+                        _LOGD("* Game paused!");
                     // disable triggers
                 }
                 break;
@@ -793,7 +857,21 @@ void Damage_Hook(
                     // disable triggers
                 } else if (startsWith(eventName, "on")) {
                     g_state.store(GameState::InGame, std::memory_order_release);
-                    _LOGD("* Back in game again!");
+                    if (g_currPlayer) {
+                        _LOGD("* Back in game again!");
+                        // TODO: create a function that does that
+                        Weapon* weapon = GetCurrentWeaponAlter(g_currPlayer);
+                        if (weapon) {
+                            const char* name = GetWeaponName(reinterpret_cast<long long*>(weapon));
+                            if (name && name[0]) {
+                                _LOGD("* curr weapon: %s", name);
+                                g_currWeapon = weapon;
+                            }
+                        } else {
+                                _LOGD("* curr weapon: (not found!)");
+                        }
+
+                    }
                     // enable triggers
                 }
                 break;
@@ -811,7 +889,7 @@ void Damage_Hook(
 
     void LevelLoadCompleted_Hook (long long *this_idLoadScreen) {
         _LOGD("idLoadScreen::LevelLoadCompleted hook!");
-        if (g_currWeapon) {
+        if (g_currPlayer) {
             FSM("GameStarted");
         }
         LevelLoadCompleted_Original(this_idLoadScreen);
@@ -860,6 +938,16 @@ void Damage_Hook(
         );
         if (MH_EnableHook(UpdateWeapon) != MH_OK) {
             _LOG("FATAL: Failed to install UpdateWeapon hook.");
+            return false;
+        }
+
+        MH_CreateHook (
+            UpdateAmmo,
+            UpdateAmmo_Hook,
+            reinterpret_cast<LPVOID *>(&UpdateAmmo_Original)
+        );
+        if (MH_EnableHook(UpdateAmmo) != MH_OK) {
+            _LOG("FATAL: Failed to install UpdateAmmo hook.");
             return false;
         }
 
