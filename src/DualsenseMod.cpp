@@ -822,7 +822,7 @@ int UpdateAmmo_Hook (void *ammo, int delta, char clamp) {
     std::string ammoType = g_WeaponToAmmoType[weaponName];
     if (ammoType == "infinite")
         return ret;
-    if (!gAmmoPtrs[ammoType]) {
+    if (!g_AmmoPtrs[ammoType]) {
         g_AmmoPtrs[ammoType] = ammo;
         _LOGD("g_AmmoPtrs[%s] = %p, |(%p)|", ammoType.c_str(), ammo, g_AmmoPtrs[ammoType]);
     }
