@@ -154,23 +154,6 @@ struct Triggers {
 // Globals
 Config g_config;
 Logger g_logger;
-std::vector<std::string> g_WeaponList = {
-    "WEAPON_PISTOL_DEFAULT",
-    "WEAPON_SHOTGUN_SINGLESHOT",
-    "WEAPON_SMG_STANDARD",
-    "WEAPON_RAILGUN_STANDARD",
-    "WEAPON_ROCKETLAUNCHER_TRIPLESHOT",
-    "WEAPON_DLC2_STICKYLAUNCHER"
-};
-
-std::vector<std::string> g_WeaponListINI = {
-    "Grip",
-    "Shatter",
-    "Spin",
-    "Pierce",
-    "Charge",
-    "Surge"
-};
 
 std::map<std::string, Triggers> g_TriggerSettings ;
 
@@ -278,6 +261,26 @@ static size_t g_currWeaponOffset = 0x9788;
 
 static Weapon *g_currWeapon = nullptr;
 
+#if 0
+static std::string GetCurrentWeaponFromPlayer() {
+    if (g_currPlayer) {
+        _LOGD("  - idPlayer already set. Check for current weapon...");
+        // TODO: create a function that does that
+        Weapon* weapon = GetCurrentWeaponAlter(g_currPlayer);
+        if (weapon) {
+            const char* name = GetWeaponName(reinterpret_cast<long long*>(weapon));
+            if (name && name[0]) {
+                _LOGD("* curr weapon: %s", name);
+                g_currWeapon = weapon;
+            }
+        } else {
+                _LOGD("* curr weapon: (not found!)");
+        }
+    }
+}
+#endif
+
+
 static Player *g_currPlayer = nullptr;
 
 enum class GameState : uint8_t {
@@ -287,6 +290,75 @@ enum class GameState : uint8_t {
 };
 
 static std::atomic<GameState> g_state{GameState::Idle};
+
+//"weapon/zion/player/sp/fists"
+//"weapon/zion/player/sp/fists_berserk"
+//"weapon/zion/player/sp/fists_virtualGUI"
+
+std::vector<std::string> g_WeaponList = {
+    "weapon/zion/player/sp/pistol",
+    "weapon/zion/player/sp/shotgun",
+    "weapon/zion/player/sp/chainsaw",
+    "weapon/zion/player/sp/heavy_rifle_heavy_ar",
+    "weapon/zion/player/sp/plasma_rifle",
+    "weapon/zion/player/sp/gauss_cannon",
+    "weapon/zion/player/sp/rocket_launcher",
+    "weapon/zion/player/sp/chaingun",
+    "weapon/zion/player/sp/double_barrel",
+    "weapon/zion/player/sp/bfg",
+};
+
+// XXX NOTE: pistol has infinite ammo so it's not in the following list
+std::vector<std::string> g_AmmoList = {
+    "bullets",  // heavy_rifle_heavy_ar, chaingun
+    "shells",   // shotgun, double_barrel
+    "rockets",  // rocket_launcher
+    "plasma",   // plasma_rifle, gauss_cannon
+    "cells",    // bfg
+    "fuel"      // chainsaw
+};
+
+// weapon name to ammo
+static std::unordered_map<std::string, std::string> g_WeaponToAmmoType = {
+  {"weapon/zion/player/sp/pistol",               "infinite"},
+  {"weapon/zion/player/sp/heavy_rifle_heavy_ar", "bullets"},
+  {"weapon/zion/player/sp/chaingun",             "bullets"},
+  {"weapon/zion/player/sp/shotgun",              "shells"},
+  {"weapon/zion/player/sp/double_barrel",        "shells"},
+  {"weapon/zion/player/sp/rocket_launcher",      "rockets"},
+  {"weapon/zion/player/sp/plasma_rifle",         "plasma"},
+  {"weapon/zion/player/sp/gauss_cannon",         "plasma"},
+  {"weapon/zion/player/sp/bfg",                  "cells"},
+  {"weapon/zion/player/sp/chainsaw",             "fuel"},
+};
+
+
+static std::unordered_map<std::string, void*> g_AmmoPtrs = {
+    {"bullets",  nullptr},
+    {"shells",   nullptr},
+    {"rockets",  nullptr},
+    {"plasma",   nullptr},
+    {"cells",    nullptr},
+    {"fuel",     nullptr}
+};
+
+static const unsigned int g_AmmoCountOffset = 0x38;
+
+// this is constructed dynamically
+static std::unordered_map<void*, bool> g_HasAmmo = {};
+
+static bool HasAmmo(std::string weaponName) {
+    std::string ammoType = g_WeaponToAmmoType[ weaponName ];
+    if (ammoType == "infinite")
+        return true;
+    void * ammo = g_AmmoPtrs[ammoType];
+    if (!ammo) {
+        _LOGD("HasAmmo - Ptr for %s found null!", ammoType);
+        return false;
+    }
+    return g_HasAmmo[ammo];
+}
+
 
 // Game functions
 using _OnWeaponSelected =
@@ -354,6 +426,10 @@ using _EventIdFromName =
 
 using _UpdateAmmo =
                     int (__fastcall *)(void *ammo, int delta, char clamp);
+
+
+using _GetWeaponFromDecl =
+                    void* (__fastcall*)(long long* mgr, long long decl);
 
 // handle to pointer resolution. It takes a 64-bit handle/id and returns a real
 // object pointer (FUN_14142C870)
@@ -464,7 +540,21 @@ UpdateAmmo(
 );
 _UpdateAmmo UpdateAmmo_Original = nullptr;
 
+// get weapon from weapon decl
+RVA<_GetWeaponFromDecl>
+GetWeaponFromDecl(
+    "48 89 5c 24 08 48 89 6c 24 10 48 89 74 24 18 48 89 7c 24 20 41 56 48 83 ec 20 33 ff 48 8b ea 4c 8b f1 39 79 08 7e 57 8b f7 0f 1f 80 00 00 00 00"
+);
+
+
 // Utility functions
+
+using GetMgr_t = void* (__fastcall*)(Player* player);
+inline void* GetWeaponMgr(Player* player) {
+    auto vtbl = *reinterpret_cast<void***>(player);
+    auto fn   = reinterpret_cast<GetMgr_t>(vtbl[0x660/8]);  // 0x660 / 8 = 0xCC
+    return fn(player);
+}
 
 static inline uint32_t GetPlayerState(Player* player) {
     auto vtable = *reinterpret_cast<void***>(player);
@@ -601,6 +691,10 @@ namespace DualsenseMod {
             UpdateAmmo.GetUIntPtr()
         );
 
+        _LOG("GetWeaponFromDecl at %p",
+            GetWeaponFromDecl.GetUIntPtr()
+        );
+
         _LOG("Damage at %p",
             Damage.GetUIntPtr()
         );
@@ -633,7 +727,7 @@ namespace DualsenseMod {
         // resolve current weapon function address
         auto doomBase = reinterpret_cast<uint8_t*>(g_doomBaseAddr);
 
-        if (!OnWeaponSelected || !SelectWeapon || !SelectWeaponByDeclExplicit || !HandleToPointer || !EventTriggered || !LevelLoadCompleted || !MenumanagerShellActivate || !MenuScreenDossierMap || !EventIdFromName || !UpdateWeapon || !UpdateAmmo)
+        if (!OnWeaponSelected || !SelectWeapon || !SelectWeaponByDeclExplicit || !HandleToPointer || !EventTriggered || !LevelLoadCompleted || !MenumanagerShellActivate || !MenuScreenDossierMap || !EventIdFromName || !UpdateWeapon || !UpdateAmmo || !GetWeaponFromDecl)
             return false;
 
         return true;
@@ -654,8 +748,12 @@ namespace DualsenseMod {
 
         if (weapon != nullptr) {
             char *weaponName =  GetWeaponName(weapon);
-            _LOGD("idPlayer::OnWeaponSelected - newWeapon = %s\n", weaponName);
             g_currWeapon = weapon;
+            bool hasAmmo = HasAmmo(weaponName);
+            _LOGD (
+                    "idPlayer::OnWeaponSelected - newWeapon = %s, hasAmmo: %s\n",
+                    weaponName, hasAmmo ? "true" : "false"
+            );
         }
         OnWeaponSelected_Original(player, weapon);
 
@@ -695,9 +793,40 @@ namespace DualsenseMod {
 
 int UpdateAmmo_Hook (void *ammo, int delta, char clamp) {
     int ret = UpdateAmmo_Original(ammo, delta, clamp);
-    int* pCount = (int*)((uint8_t*)ammo + 0x38);
+    if (!ammo)
+        ret;
+    int* pCount = (int*)((uint8_t*)ammo + g_AmmoCountOffset);
     int  count  = *pCount;
-    _LOGD("* UpdateAmmo hook! AMMO: %d", count);
+    _LOGD("* UpdateAmmo hook! ammo ptr: %p, delta: %d, clamp: %d, AMMO: %d",
+            ammo,
+            delta,
+            clamp,
+            count
+    );
+
+    if (count <= 0 && g_HasAmmo[ammo])
+        g_HasAmmo[ammo] = false;
+    if (count > 0 && !g_HasAmmo[ammo])
+        g_HasAmmo[ammo] = true;
+
+    if (!g_currWeapon) {
+        return ret;
+    }
+
+    char *weapon_str = GetWeaponName(reinterpret_cast<long long*>(g_currWeapon));
+    if (!weapon_str) {
+        return ret;
+    }
+
+    std::string weaponName = std::string(weapon_str);
+    std::string ammoType = g_WeaponToAmmoType[weaponName];
+    if (ammoType == "infinite")
+        return ret;
+    if (!gAmmoPtrs[ammoType]) {
+        g_AmmoPtrs[ammoType] = ammo;
+        _LOGD("g_AmmoPtrs[%s] = %p, |(%p)|", ammoType.c_str(), ammo, g_AmmoPtrs[ammoType]);
+    }
+
 #if 0
     if (!g_weapon_to_ammo)
         TryDeriveWeaponToAmmoOffset(g_currWeapon, ammo);
@@ -759,11 +888,34 @@ void Damage_Hook(
     }
 
     unsigned long long SelectWeaponByDeclExplicit_Hook(long long *player,
-                                long long param_2, char param_3, char param_4) {
+                                long long decl, char param_3, char param_4) {
         _LOGD("* idPlayer::SelectWeaponByDeclExplicit hook!!!");
-        unsigned long long ret = SelectWeaponByDeclExplicit_Original(player, param_2, param_3, param_4);
+
+        Weapon *weapon = nullptr;
+        if (long long *mgr = (long long *) GetWeaponMgr(player)) {
+            weapon = (Weapon *)GetWeaponFromDecl(mgr, decl);
+            if (weapon) {
+                const char* name = GetWeaponName(reinterpret_cast<long long*>(weapon));
+                if (name && name[0]) {
+                    _LOGD("* (init) curr weapon: %s", name);
+                }
+                g_currWeapon = weapon;
+            }
+        }
+        unsigned long long ret = SelectWeaponByDeclExplicit_Original(player, decl, param_3, param_4);
+/*
+        Weapon* weapon = GetCurrentWeaponAlter(player);
+        if (weapon) {
+            const char* name = GetWeaponName(reinterpret_cast<long long*>(weapon));
+            if (name && name[0]) {
+                _LOGD("* (init) curr weapon: %s", name);
+            }
+        } else {
+                _LOGD("* (init) curr weapon: (not found!)");
+        }
+*/
         // reset player here
-        if (g_currPlayer)
+        if (g_currPlayer && g_state == GameState::Idle)
             g_currPlayer = nullptr;
         return ret;
     }
@@ -823,8 +975,13 @@ void Damage_Hook(
                         if (weapon) {
                             const char* name = GetWeaponName(reinterpret_cast<long long*>(weapon));
                             if (name && name[0]) {
-                                _LOGD("* curr weapon: %s", name);
                                 g_currWeapon = weapon;
+                                bool hasAmmo = HasAmmo(name);
+                                _LOGD (
+                                        "* curr weapon = %s, hasAmmo: %s\n",
+                                        name, hasAmmo ? "true" : "false"
+                                );
+
                             }
                         } else {
                                 _LOGD("* curr weapon: (not found!)");
