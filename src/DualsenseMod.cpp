@@ -379,21 +379,6 @@ using MenuDtor_t   = void (__fastcall*)(void* self);
 using MenuUpdate_t = void (__fastcall*)(void* self /*maybe*/, float /*maybe*/, void* /*ctx?*/);
 using MenuDraw_t   = void (__fastcall*)(void* self /*maybe*/, void* /*renderCtx?*/);
 
-using _EventTriggered =
-            void* (__fastcall*)(
-    void*        screenInfo,     // &DAT_145bedc20
-    const char*  screenName,     // "idMenuScreen_Start"
-    const char*  baseTypeName,   // "idMenuScreen"
-    uint32_t     sizeBytes,      // 0x1C0 in the snippet
-    uint8_t      flags,          // looked like 0 in my call
-    MenuCtor_t   ctor,           // FUN_140FC6060
-    MenuDtor_t   dtor,           // LAB_140FC3E90
-    MenuUpdate_t update,         // FUN_140FCA440
-    MenuDraw_t   draw,           // LAB_1415033F0
-    const uint32_t* initBlob,    // &uStack_28 (small init template)
-    void*        guardFunc       // _guard_check_icall
-);
-
 using _LevelLoadCompleted =
                     void (__fastcall*)(long long *this_idLoadScreen);
 
@@ -428,77 +413,59 @@ OnWeaponSelected (
 );
 _OnWeaponSelected OnWeaponSelected_Original = nullptr;
 
+// This function inits player with all the weapons owned before game starts
 RVA<_SelectWeaponByDeclExplicit>
 SelectWeaponByDeclExplicit (
     "48 89 5c 24 08 48 89 6c 24 10 48 89 74 24 18 57 41 56 41 57 48 83 ec 20 83 3d 91 73 d8 04 00 45 0f b6 f1 45 0f b6 f8 48 8b ea 48 8b f9 74 2c 48 8b 0d fa af cc 04 48 8b 5a 08 48 8b 01 ff 90 10 02 00 00 4c 8b cb 4c 8d 05 1b e5 46 01 8b d0"
-
-    //"48 8B 0D ? ? ? ? 48 8B 5A 08 48 8B 01 FF 90 10 02 00 00 4C 8B CB 4C 8D 05 ? ? ? ? 8B D0 48 8D 0D ? ? ? ? E8 ? ? ? ?"
 );
 _SelectWeaponByDeclExplicit SelectWeaponByDeclExplicit_Original = nullptr;
 
+// This function signals that level loading is complete
 RVA<_LevelLoadCompleted>
 LevelLoadCompleted (
         "48 89 5c 24 08 48 89 74 24 10 57 48 83 ec 20 48 8b d9 48 8d 0d 3f 8d 1d 01 e8 e2 c6 c0 fe"
 );
 _LevelLoadCompleted LevelLoadCompleted_Original = nullptr;
 
+// Function to monitor game events in order to track game lifetime in our FSM
 RVA<_EventIdFromName>
 EventIdFromName (
     "40 57 48 83 ec 70 48 c7 44 24 28 fe ff ff ff 48 89 9c 24 90 00 00 00 48 8b 05 02 f0 ff 03 48 33 c4 48 89 44 24 60"
 );
 _EventIdFromName EventIdFromName_Original = nullptr;
 
+// Function that applies damage to player
 RVA<_Damage>
 Damage (
     "48 8b c4 55 53 56 57 41 54 41 55 41 56 41 57 48 8d a8 18 f2 ff ff 48 81 ec a8 0e 00 00 48 c7 45 e0 fe ff ff ff 0f 29 70 a8 0f 29 78 98 44 0f 29 40 88"
 );
 _Damage Damage_Original = nullptr;
 
-
-
-// Check weapon mod
-// FUN_140f11670
-// 48 83 ec 08 4c 8b d1 4c 8b da 48 63 89 d4 08 00 00 83 f9 ff 8b d1 4d 8b 4a 30 0f 44 d1
-
-//140b44840
-//48 89 5c 24 08 48 89 6c 24 10 48 89 74 24 18 48 89 7c 24 20 41 56 48 83 ec 30 48 8b 84 24 98 00 00 00
-
-// FUN_140e46970 noisy
-// FUN_140e446a0 loads all the weapons
-// FUN_140e44090 x
-// FUN_140e44000 x
-// FUN_140da88c0 x
-// FUN_140da8830 x
-// FUN_1406adc70 x
-
-// FUN_140e446a0 loads all the weapons (xrefs:)
-// FUN_140a5d850: idTarget_EquipItems
-// FUN_140e445e0: idPlayer::SelectWeaponByDecl
-
+// Function that gets a handle and resolves it to a pointer, useful to get
+// weapon object from player object
 RVA<_HandleToPointer>
 HandleToPointer (
     "40 53 48 83 ec 20 48 8b d9 48 85 c9 74 21 48 8b 01 ff 10 8b 48 68 3b 0d 0c 63 8b 04 7c 11 3b 0d 08 63 8b 04 7f 09 48 8b c3 48 83 c4 20 5b"
 );
 
+// Function that updates weapon on idPlayer; we're using it to just get a
+// reference of the idPlayer object
 RVA<_UpdateWeapon>
 UpdateWeapon (
     "40 55 53 57 48 8d ac 24 f0 fb ff ff 48 81 ec 10 05 00 00 48 8b 05 b6 f2 8f 04 48 33 c4 48 89 85 c0 03 00 00 48 8b f9 e8 e4 b8 f8 ff 48 8b 17 48 8b cf 48 8b d8 48 89 44 24 30 ff 92 c8 06 00 00 84 c0 74 1c 48 8d 8f 78 70 01 00 48 8b d3 e8 fd 51 f2 ff 48 8b cf e8 d5 fe ff ff e9 e8 13 00 00 8b 0d 42 87 d1 04 8b c1 48 89 b4 24 38 05 00 00 c1 e8 12 4c 89 a4 24 40 05 00 00 4c 89 b4 24 08 05 00 00 a8 01 74 1c 0f ba f1 12 83 3d de 86 d1 04 00 89 0d 10 87 d1 04 48 8b cf 0f 95 c2"
 );
 _UpdateWeapon UpdateWeapon_Original = nullptr;
 
-RVA<_EventTriggered>
-EventTriggered (
-    "48 89 4c 24 08 56 57 41 56 48 83 ec 30 48 c7 44 24 20 fe ff ff ff 48 89 5c 24 58 48 89 6c 24 60 41 8b f9 49 8b d8 48 8b ea 48 8b f1 45 33 f6 4c 89 b1 88 00 00 00 4c 89 71 70 4c 89 71 78 4c 89 b1 80 00 00 00 44 88 71 61 48 89 11 48 8d 15 3d 93 c9 00 48 8b cd e8 85 84 db fe 48 8b cb 85 c0 49 0f 44 ce 48 89 4e 08 48 8b 84 24 98 00 00 00 0f 10 00 0f 11 46 10 f2 0f 10 48 10 f2 0f 11 4e 20 48 8b 44 24 78 48 89 46 28 48 8b 84 24 80 00 00 00 48 89 46 30 48 8b 84 24 88 00 00 00 48 89 46 38 48 8b 84 24 90 00 00 00 48 89 46 40 48 8b 84 24 a0 00 00 00 48 89 46 48 48 8b cb e8 1e 02 00 00 48 89 46 50 0f b6 44 24 70"
-);
-_EventTriggered EventTriggered_Original = nullptr;
-
+// Function that updates weapon's ammo; we hook it to keep track of the
+// capability of the weapnons to fire or not
 RVA<_UpdateAmmo>
 UpdateAmmo(
     "48 89 5c 24 08 48 89 74 24 10 57 48 83 ec 20 33 ff 48 8b d9 45 84 c0 74 08 39 79 38"
 );
 _UpdateAmmo UpdateAmmo_Original = nullptr;
 
-// get weapon from weapon decl
+// Function to get initiate weapons; we're using it to get the first weapon that
+// slayer has when enters the game
 RVA<_GetWeaponFromDecl>
 GetWeaponFromDecl(
     "48 89 5c 24 08 48 89 6c 24 10 48 89 74 24 18 48 89 7c 24 20 41 56 48 83 ec 20 33 ff 48 8b ea 4c 8b f1 39 79 08 7e 57 8b f7 0f 1f 80 00 00 00 00"
@@ -655,10 +622,6 @@ namespace DualsenseMod {
             Damage.GetUIntPtr()
         );
 
-        _LOG("EventTriggered at %p",
-            EventTriggered.GetUIntPtr()
-        );
-
         _LOG("LevelLoadCompleted at %p",
             LevelLoadCompleted.GetUIntPtr()
         );
@@ -672,7 +635,7 @@ namespace DualsenseMod {
             return false;
         }
 
-        if (!OnWeaponSelected || !SelectWeaponByDeclExplicit || !HandleToPointer || !EventTriggered || !LevelLoadCompleted || !EventIdFromName || !UpdateWeapon || !UpdateAmmo || !GetWeaponFromDecl)
+        if (!OnWeaponSelected || !SelectWeaponByDeclExplicit || !HandleToPointer || !LevelLoadCompleted || !EventIdFromName || !UpdateWeapon || !UpdateAmmo || !GetWeaponFromDecl)
             return false;
 
         return true;
@@ -859,26 +822,6 @@ void Damage_Hook(
         return ret;
     }
 
-    void* EventTriggered_Hook(
-    void*        screenInfo,     // &DAT_145bedc20
-    const char*  screenName,     // "idMenuScreen_Start"
-    const char*  baseTypeName,   // "idMenuScreen"
-    uint32_t     sizeBytes,      // 0x1C0 in the snippet
-    uint8_t      flags,          // looked like 0 in my call
-    MenuCtor_t   ctor,           // FUN_140FC6060
-    MenuDtor_t   dtor,           // LAB_140FC3E90
-    MenuUpdate_t update,         // FUN_140FCA440
-    MenuDraw_t   draw,           // LAB_1415033F0
-    const uint32_t* initBlob,    // &uStack_28 (small init template)
-    void*        guardFunc       // _guard_check_icall (or similar)
-    ){
-        _LOGD("* EventTriggered hook!");
-        //_LOGD("event screen method: %s, screen name: %s, screenName, baseTypeName);
-        return EventTriggered_Original(screenInfo, screenName, baseTypeName,
-                sizeBytes, flags, ctor, dtor, update, draw, initBlob,
-                guardFunc);
-    }
-
     // util
     bool startsWith(const char* s, const char* prefix) {
         if (!s || !prefix) return false;
@@ -1034,17 +977,6 @@ void Damage_Hook(
             _LOG("FATAL: Failed to install Damage hook.");
             return false;
         }
-
-        MH_CreateHook (
-            EventTriggered,
-            EventTriggered_Hook,
-            reinterpret_cast<LPVOID *>(&EventTriggered_Original)
-        );
-        if (MH_EnableHook(EventTriggered) != MH_OK) {
-            _LOG("FATAL: Failed to install EventTriggered hook.");
-            return false;
-        }
-
 
         MH_CreateHook (
             LevelLoadCompleted,
