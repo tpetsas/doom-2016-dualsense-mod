@@ -248,38 +248,14 @@ using Weapon  = void;
 
 // Game global vars
 
-static DWORD mainThread = -1;
 HMODULE g_doomBaseAddr = nullptr;
 
-int RVA_weapon_offset = 0x05B0F6D0;
-constexpr uint64_t GHIDRA_IMG_BASE = 0x140000000;   // Image Base (Ghidra)
-constexpr uint64_t DAT_VA          = 0x145B0F6D0;
-constexpr size_t   SLOT_OFFSET     = 0x210;
 
+// found using FindCurrWeaponHandle (Player *player)
 static size_t g_currWeaponOffset = 0x9788;
 // = SIZE_MAX; // to search for the offset using FindCurrWeaponHandle
 
 static Weapon *g_currWeapon = nullptr;
-
-#if 0
-static std::string GetCurrentWeaponFromPlayer() {
-    if (g_currPlayer) {
-        _LOGD("  - idPlayer already set. Check for current weapon...");
-        // TODO: create a function that does that
-        Weapon* weapon = GetCurrentWeaponAlter(g_currPlayer);
-        if (weapon) {
-            const char* name = GetWeaponName(reinterpret_cast<long long*>(weapon));
-            if (name && name[0]) {
-                _LOGD("* curr weapon: %s", name);
-                g_currWeapon = weapon;
-            }
-        } else {
-                _LOGD("* curr weapon: (not found!)");
-        }
-    }
-}
-#endif
-
 
 static Player *g_currPlayer = nullptr;
 
@@ -342,6 +318,17 @@ static std::unordered_map<std::string, void*> g_AmmoPtrs = {
     {"fuel",     nullptr}
 };
 
+static void resetAmmoPtrs() {
+    g_AmmoPtrs = {
+        {"bullets",  nullptr},
+        {"shells",   nullptr},
+        {"rockets",  nullptr},
+        {"plasma",   nullptr},
+        {"cells",    nullptr},
+        {"fuel",     nullptr}
+    };
+}
+
 static const unsigned int g_AmmoCountOffset = 0x38;
 
 // this is constructed dynamically
@@ -353,7 +340,7 @@ static bool HasAmmo(std::string weaponName) {
         return true;
     void * ammo = g_AmmoPtrs[ammoType];
     if (!ammo) {
-        _LOGD("HasAmmo - Ptr for %s found null!", ammoType);
+        _LOGD("HasAmmo - Ptr for %s found null!", ammoType.c_str());
         return false;
     }
     return g_HasAmmo[ammo];
@@ -363,12 +350,6 @@ static bool HasAmmo(std::string weaponName) {
 // Game functions
 using _OnWeaponSelected =
                     void(__fastcall*)(void *player, long long *weapon);
-
-using _SelectWeapon =
-                    uint64_t*(__fastcall*) (
-                            long long *param_1,long long *param_2,
-                            long long *param_3, uint8_t param_4
-                    );
 
 using _SelectWeaponByDeclExplicit =
                     unsigned long long(__fastcall*) (
@@ -381,13 +362,13 @@ using _UpdateWeapon =
 
 
 using _Damage = void(__fastcall*)(
-    void* player,           // param_1  (idPlayer*)
-    void* inflictor,        // param_2  (idEntity*, may be null)
-    void* attacker,         // param_3  (idEntity*, may be player or null)
-    long long damageDecl,   // param_4  (idDecl* / damage parms blob)
-    float damageScale,      // param_5
-    const float* dir,       // param_6  (vec3*, may be null)
-    const float* hitInfo    // param_7  (misc hit/joint info, may be null)
+    void* player,
+    void* inflictor,
+    void* attacker,
+    long long damageDecl,
+    float damageScale,
+    const float* dir,
+    const float* hitInfo
 );
 
 // Virtual: bool idPlayer::IsDead() const;  // found at vtable + 0x6C8
@@ -397,6 +378,7 @@ using MenuCtor_t   = void (__fastcall*)(void* self);
 using MenuDtor_t   = void (__fastcall*)(void* self);
 using MenuUpdate_t = void (__fastcall*)(void* self /*maybe*/, float /*maybe*/, void* /*ctx?*/);
 using MenuDraw_t   = void (__fastcall*)(void* self /*maybe*/, void* /*renderCtx?*/);
+
 using _EventTriggered =
             void* (__fastcall*)(
     void*        screenInfo,     // &DAT_145bedc20
@@ -409,16 +391,11 @@ using _EventTriggered =
     MenuUpdate_t update,         // FUN_140FCA440
     MenuDraw_t   draw,           // LAB_1415033F0
     const uint32_t* initBlob,    // &uStack_28 (small init template)
-    void*        guardFunc       // _guard_check_icall (or similar)
+    void*        guardFunc       // _guard_check_icall
 );
 
 using _LevelLoadCompleted =
                     void (__fastcall*)(long long *this_idLoadScreen);
-using _MenumanagerShellActivate =
-                    void (__fastcall*)(long long param_1, uint32_t param_2);
-
-using _MenuScreenDossierMap =
-                    void (__fastcall*)(void);
 
 using _EventIdFromName =
                     void (__fastcall*)(void *eventSystem, const char *eventName);
@@ -434,8 +411,10 @@ using _GetWeaponFromDecl =
 // handle to pointer resolution. It takes a 64-bit handle/id and returns a real
 // object pointer (FUN_14142C870)
 using _HandleToPointer  = Weapon* (__fastcall*)(uint64_t);
+
 // idPlayer's vtable + 0xB20
 using PlayerState  = uint32_t(__fastcall*)(Player*);
+
 // idPlayer's vtable +0x678
 using GetHandle    = uint64_t(__fastcall*)(Player*, uint32_t state);
 
@@ -457,32 +436,11 @@ SelectWeaponByDeclExplicit (
 );
 _SelectWeaponByDeclExplicit SelectWeaponByDeclExplicit_Original = nullptr;
 
-
-RVA<_SelectWeapon>
-SelectWeapon (
-    "48 89 6c 24 18 56 41 56 41 57 48 83 ec 30 45 0f b6 f9 49 8b e8 4c 8b f2 48 8b f1 4d 85 c0 75 3a 44 38 81 80 cd 00 00 74 20 41 b9 b2 01 00 00 4c 8d 05 f2 e6 46 01 48 8d 15 cb e7 46 01 48 8d 0d 34 e7 46 01 e8 f7 ea 43 ff 32 c0 48 8b 6c 24 60 48 83 c4 30 41 5f 41 5e 5e c3 83 3d bf 76 d8 04 00 48 89 5c 24 50 48 89 7c 24 58 74 69 49 8b 40 30 48 8b 0d 28 b3 cc 04 4d 85 f6 75 27 48 8b 58 08 48 8b 01 ff 90 10 02 00 00"
-
-);
-_SelectWeapon SelectWeapon_Original = nullptr;
-
 RVA<_LevelLoadCompleted>
 LevelLoadCompleted (
         "48 89 5c 24 08 48 89 74 24 10 57 48 83 ec 20 48 8b d9 48 8d 0d 3f 8d 1d 01 e8 e2 c6 c0 fe"
 );
 _LevelLoadCompleted LevelLoadCompleted_Original = nullptr;
-
-RVA<_MenumanagerShellActivate>
-MenumanagerShellActivate (
-    "48 8b c4 55 56 57 41 54 41 55 41 56 41 57 48 8d 68 a8 48 81 ec 20 01 00 00 48 c7 44 24 48 fe ff ff ff 48 89 58 18 0f 29 70 b8 48 8b 05 df d2 7a 04 48 33 c4 48 89 45 00 44 8b e2 48 8b d9 83 3d 1b 95 c4 04 00 0f 84 22 03 00 00 48 8d 05 fe 46 06 01 48 89 44 24 28 45 33 ed 4c 89 6c 24 40 4c 89 6c 24 38"
-);
-_MenumanagerShellActivate MenumanagerShellActivate_Original = nullptr;
-
-
-RVA<_MenuScreenDossierMap>
-MenuScreenDossierMap (
-    "4c 8b dc 48 81 ec a8 00 00 00 48 8d 05 bf 91 1b 01 41 b9 f8 01 00 00 49 89 43 b8 4c 8d 05 5e 78 14 02 33 c0 48 8d 15 85 65 2a 02"
-);
-_MenuScreenDossierMap MenuScreenDossierMap_Original = nullptr;
 
 RVA<_EventIdFromName>
 EventIdFromName (
@@ -581,6 +539,8 @@ static size_t FindOffsetByQword(void* base, uint64_t value, size_t limit=0x20000
     return SIZE_MAX;
 }
 
+// XXX This function is unused, it's only needed in case of a game update
+// to find out where the new weapon offset is
 static void FindCurrWeaponHandle (Player *player) {
     auto state = GetPlayerState(player);
     auto handle = GetPlayerHandle(player, state);
@@ -671,10 +631,6 @@ namespace DualsenseMod {
             OnWeaponSelected.GetUIntPtr()
         );
 
-        _LOG("SelectWeapon at %p",
-            SelectWeapon.GetUIntPtr()
-        );
-
         _LOG("SelectWeaponByDeclExplicit at %p",
             SelectWeaponByDeclExplicit.GetUIntPtr()
         );
@@ -707,14 +663,6 @@ namespace DualsenseMod {
             LevelLoadCompleted.GetUIntPtr()
         );
 
-        _LOG("MenumanagerShellActivate at %p",
-            MenumanagerShellActivate.GetUIntPtr()
-        );
-
-        _LOG("MenuScreenDossierMap at %p",
-            MenuScreenDossierMap.GetUIntPtr()
-        );
-
         _LOG("EventIdFromName at %p",
             EventIdFromName.GetUIntPtr()
         );
@@ -724,10 +672,7 @@ namespace DualsenseMod {
             return false;
         }
 
-        // resolve current weapon function address
-        auto doomBase = reinterpret_cast<uint8_t*>(g_doomBaseAddr);
-
-        if (!OnWeaponSelected || !SelectWeapon || !SelectWeaponByDeclExplicit || !HandleToPointer || !EventTriggered || !LevelLoadCompleted || !MenumanagerShellActivate || !MenuScreenDossierMap || !EventIdFromName || !UpdateWeapon || !UpdateAmmo || !GetWeaponFromDecl)
+        if (!OnWeaponSelected || !SelectWeaponByDeclExplicit || !HandleToPointer || !EventTriggered || !LevelLoadCompleted || !EventIdFromName || !UpdateWeapon || !UpdateAmmo || !GetWeaponFromDecl)
             return false;
 
         return true;
@@ -861,31 +806,25 @@ void Damage_Hook(
     const float* hitInfo)
 {
     //_LOGD("* Damage hook!");
-    // 1) state before damage is applied
+    // state before damage is applied
     const bool wasDead = CallIsDead(player);
 
-    // 2) let the game apply damage
+    // let the game apply damage
     Damage_Original(player, inflictor, attacker, damageDecl, damageScale, dir, hitInfo);
 
-    // 3) state after damage
+    // state after damage
     const bool isDead = CallIsDead(player);
 
-    // 4) rising edge detection: alive -> dead
+    // alive -> dead detection
     if (!wasDead && isDead)
     {
         g_state.store(GameState::Idle, std::memory_order_release);
         g_currWeapon = nullptr;
+        g_HasAmmo = {}; // reset ammo info
+        resetAmmoPtrs();
         _LOGD("* Damage hook, Player is DEAD! Switching to Idle state...");
     }
 }
-
-    uint64_t *SelectWeapon_Hook(long long *param_1, long long *param_2, long long *param_3, uint8_t param_4) {
-        _LOGD("* idPlayer::SelectWeapon hook!!!");
-        char *currentWeaponName = (char *)(*(long long *)(param_2[6] + 8));
-        char *newWeaponName = (char *)(*(long long *)(param_3[6] + 8));
-        _LOGD("idPlayer::SelectWeapon - currentWeapon: %s, newWeapon = %s\n", currentWeaponName, newWeaponName);
-        return SelectWeapon_Original(param_1, param_2, param_3, param_4);
-    }
 
     unsigned long long SelectWeaponByDeclExplicit_Hook(long long *player,
                                 long long decl, char param_3, char param_4) {
@@ -938,20 +877,6 @@ void Damage_Hook(
         return EventTriggered_Original(screenInfo, screenName, baseTypeName,
                 sizeBytes, flags, ctor, dtor, update, draw, initBlob,
                 guardFunc);
-    }
-
-
-    void MenumanagerShellActivate_Hook (long long param_1, uint32_t param_2) {
-        _LOGD("idMenuManager_Shell::Activate hook!");
-        MenumanagerShellActivate_Original(param_1, param_2);
-        return;
-    }
-
-
-    void MenuScreenDossierMap_Hook (void) {
-        _LOGD("idMenuScreen_Dossier_Map hook!");
-        MenuScreenDossierMap_Original();
-        return;
     }
 
     // util
@@ -1009,8 +934,10 @@ void Damage_Hook(
             case GameState::Paused:
                 if (startsWith(eventName, "off")) {
                     g_state.store(GameState::Idle, std::memory_order_release);
-                    _LOGD("* Rare, but game ended! Switching to Idle state...");
                     g_currWeapon = nullptr;
+                    g_HasAmmo = {}; // reset ammo info
+                    resetAmmoPtrs();
+                    _LOGD("* Rare, but game ended! Switching to Idle state...");
                     // disable triggers
                 } else if (startsWith(eventName, "on")) {
                     g_state.store(GameState::InGame, std::memory_order_release);
@@ -1065,16 +992,6 @@ void Damage_Hook(
         );
         if (MH_EnableHook(OnWeaponSelected) != MH_OK) {
             _LOG("FATAL: Failed to install OnWeaponSelected hook.");
-            return false;
-        }
-
-        MH_CreateHook (
-            SelectWeapon,
-            SelectWeapon_Hook,
-            reinterpret_cast<LPVOID *>(&SelectWeapon_Original)
-        );
-        if (MH_EnableHook(SelectWeapon) != MH_OK) {
-            _LOG("FATAL: Failed to install SelectWeapon hook.");
             return false;
         }
 
@@ -1136,28 +1053,6 @@ void Damage_Hook(
         );
         if (MH_EnableHook(LevelLoadCompleted) != MH_OK) {
             _LOG("FATAL: Failed to install LevelLoadCompleted hook.");
-            return false;
-        }
-
-
-        MH_CreateHook (
-            MenumanagerShellActivate,
-            MenumanagerShellActivate_Hook,
-            reinterpret_cast<LPVOID *>(&MenumanagerShellActivate_Original)
-        );
-        if (MH_EnableHook(MenumanagerShellActivate) != MH_OK) {
-            _LOG("FATAL: Failed to install MenumanagerShellActivate hook.");
-            return false;
-        }
-
-        MH_CreateHook (
-            MenuScreenDossierMap,
-            MenuScreenDossierMap_Hook,
-            reinterpret_cast<LPVOID *>(&MenuScreenDossierMap_Original)
-        );
-
-        if (MH_EnableHook(MenuScreenDossierMap) != MH_OK) {
-            _LOG("FATAL: Failed to install MenuScreenDossierMap hook.");
             return false;
         }
 

@@ -16,6 +16,7 @@ if (NOT EXISTS "${DUALSENSITIVE_ROOT}/src/dualsensitive.cpp")
     )
     message("${CMAKE_CURRENT_LIST_DIR}/src/dualsence-cpp/src/dualsensitive.cpp")
 endif()
+
 include_directories(${DUALSENSITIVE_ROOT})
 
 file(GLOB_RECURSE DUALSENSITIVE_SOURCE_FILES
@@ -45,7 +46,6 @@ target_link_libraries(dualsensitive
 
 include_directories(${DUALSENSITIVE_ROOT})
 
-
 # Add the source files, including dllmain.cpp
 add_library(dualsense-mod SHARED
     src/dllmain.cpp
@@ -61,6 +61,9 @@ add_library(dualsense-mod SHARED
     src/rva/sscan/Pattern.cpp
 )
 
+#if(MSVC)
+#  target_compile_options(dualsense-mod PRIVATE /W4)   # MSVC warnings (includes C4100/C4189/C4505)
+#endif()
 
 target_link_libraries(dualsense-mod PRIVATE dualsensitive)
 
