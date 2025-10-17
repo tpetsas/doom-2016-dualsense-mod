@@ -340,9 +340,19 @@ void InitTriggerSettings() {
     };
 }
 
-void SendTriggers(std::string weaponType) {
+bool hasModSettings(std::string weaponName);
+void SendTriggers(std::string weaponName, bool mod = false);
+void SendTriggers(std::string weaponName, bool mod) {
 #if 1
-    Triggers t = g_TriggerSettings[weaponType];
+    std::string weaponId = std::string(weaponName);
+    if (mod) {
+        if (!hasModSettings(weaponName)) {
+           _LOGD("* No mod settings found for %s", weaponName.c_str());
+           return;
+        }
+        weaponId += "_mod";
+    }
+    Triggers t = g_TriggerSettings[weaponId];
     if (t.L2->isCustomTrigger)
         dualsensitive::setLeftCustomTrigger(t.L2->mode, t.L2->extras);
     else
@@ -372,6 +382,8 @@ static size_t g_currWeaponOffset = 0x9788;
 static Weapon *g_currWeapon = nullptr;
 
 static Player *g_currPlayer = nullptr;
+
+static unsigned int g_previousMode = 0;
 
 enum class GameState : uint8_t {
     Idle,       // Game hasn't started yet
@@ -415,6 +427,20 @@ std::vector<std::string> g_WeaponList = {
     "weapon/zion/player/sp/bfg",
 };
 
+
+static std::vector<std::string> g_WeaponsWithModSettings = {
+    "weapon/zion/player/sp/shotgun",
+    "weapon/zion/player/sp/chaingun"
+};
+
+static bool hasModSettings(std::string weaponName) {
+    return std::find (
+            g_WeaponsWithModSettings.begin(),
+            g_WeaponsWithModSettings.end(),
+            weaponName
+    ) != g_WeaponsWithModSettings.end();
+}
+
 // XXX NOTE: pistol has infinite ammo so it's not in the following list
 std::vector<std::string> g_AmmoList = {
     "bullets",  // heavy_rifle_heavy_ar, chaingun
@@ -432,7 +458,9 @@ static std::unordered_map<std::string, std::string> g_WeaponToAmmoType = {
   {"weapon/zion/player/sp/pistol",               "infinite"},
   {"weapon/zion/player/sp/heavy_rifle_heavy_ar", "bullets"},
   {"weapon/zion/player/sp/chaingun",             "bullets"},
+  {"weapon/zion/player/sp/chaingun_mod",         "bullets"},
   {"weapon/zion/player/sp/shotgun",              "shells"},
+  {"weapon/zion/player/sp/shotgun_mod",          "shells"},
   {"weapon/zion/player/sp/double_barrel",        "shells"},
   {"weapon/zion/player/sp/rocket_launcher",      "rockets"},
   {"weapon/zion/player/sp/plasma_rifle",         "plasma"},
@@ -794,31 +822,38 @@ namespace DualsenseMod {
 #endif
     }
 
-    void sendAdaptiveTriggersForCurrentWeapon() {
+    void sendAdaptiveTriggersForCurrentWeapon(bool mod = false);
+    void sendAdaptiveTriggersForCurrentWeapon(bool mod) {
 #if 1
         char * currWeaponName = GetWeaponName (
                 reinterpret_cast<long long*>(g_currWeapon)
         );
-        if (currWeaponName) {
+        if (currWeaponName && HasAmmo(currWeaponName)){
             _LOGD("* Sending adaptive trigger setting!");
-            SendTriggers(currWeaponName);
+            SendTriggers(currWeaponName, mod);
+            return;
         }
+        _LOGD("* No valid weapon name or no ammo - resetting triggers!");
+        resetAdaptiveTriggers();
 #endif
     }
 
     void OnWeaponSelected_Hook(void *player, long long *weapon) {
         _LOGD("* OnWeaponSelected hook!!!");
 
-        if (weapon != nullptr) {
-            char *weaponName =  GetWeaponName(weapon);
-            g_currWeapon = weapon;
-            bool hasAmmo = HasAmmo(weaponName);
-            _LOGD (
-                    "idPlayer::OnWeaponSelected - newWeapon = %s, hasAmmo: %s\n",
-                    weaponName, hasAmmo ? "true" : "false"
-            );
-            sendAdaptiveTriggersForCurrentWeapon();
+        if (weapon == nullptr) {
+            OnWeaponSelected_Original(player, weapon);
+            return;
         }
+
+        char *weaponName =  GetWeaponName(weapon);
+        g_currWeapon = weapon;
+        bool hasAmmo = HasAmmo(weaponName);
+        _LOGD (
+                "idPlayer::OnWeaponSelected - newWeapon = %s, hasAmmo: %s\n",
+                weaponName, hasAmmo ? "true" : "false"
+        );
+        sendAdaptiveTriggersForCurrentWeapon();
         OnWeaponSelected_Original(player, weapon);
 
         // XXX uncomment to find the idPlayer's current weapon handler
@@ -911,28 +946,28 @@ static inline TriggerState GetAltState(void* weapon) {
     return (TriggerState)*reinterpret_cast<int*>((uint8_t*)weapon + 0x584);
 }
 
-static int previous = -1;
 bool SetFireMode_Hook(void* weapon, uint32_t mode, char allowSame) {
     // This tells us if mod is active (i.e., if left trigger is pressed)
     // XXX NOTE: we should check allowSame and other fields based on the
     // Ghidra source as we might discover which mode is active, if the gun
     // can still fire or if the mod is in charging state, etc.
     bool ok = SetFireMode_Original(weapon, mode, allowSame);
-    if (!g_currWeapon)
+    if (!g_currPlayer || !g_currWeapon)
         return ok;
     //int wMode = GetSelectedMode(g_currWeapon);
     //TriggerState secTrigger = GetSecondaryState(g_currWeapon);
-    if (ok && mode != previous) {
+    if (ok && mode != g_previousMode) {
         print_state();
-        _LOGD("* SetFireMode hook! weapon: %p, curr weapon: %p  | previous: %d, current: %d",
+        _LOGD("* SetFireMode hook! weapon: %p, curr weapon: %p  | g_previousMode: %d, current: %d",
                 //|| wMode: %d || state: %d",
                 weapon, g_currWeapon,
-                previous, mode
+                g_previousMode, mode
                 //, wMode,
                 //(int) secTrigger
         );
+        sendAdaptiveTriggersForCurrentWeapon((bool)mode);
     }
-    previous = mode;
+    g_previousMode = mode;
     return ok;
 }
 
@@ -1002,7 +1037,6 @@ void Damage_Hook(
         {
             //g_pendingDeath.store(true, std::memory_order_release);
 #if 1
-            
             g_state.store(GameState::Idle, std::memory_order_release);
             resetAdaptiveTriggers();
             g_currWeapon = nullptr;
@@ -1042,8 +1076,9 @@ void Damage_Hook(
                 _LOGD("* (init) curr weapon: (not found!)");
         }
 */
-        // reset player here
-        if (g_currPlayer && g_state == GameState::Idle)
+        // reset player here (paused used for load the latest checkpoint from the main menu)
+        if (g_currPlayer && (g_state == GameState::Idle || g_state == GameState::Paused))
+            g_state.store(GameState::Idle, std::memory_order_release);
             g_currPlayer = nullptr;
         return ret;
     }
@@ -1054,7 +1089,7 @@ void Damage_Hook(
         const size_t m = std::strlen(prefix);
         return !std::strncmp(s, prefix, m);
     }
-   
+
     // consecutive "default" events when in paused
     static unsigned int consDefaultCnt = 0;
     static bool previousEventWasDefault = false;
@@ -1124,7 +1159,7 @@ void Damage_Hook(
                         consDefaultCnt = 1;
                         previousEventWasDefault = true;
                     } else {
-                        if(consDefaultCnt++ >= 10) {
+                        if(consDefaultCnt++ >= 50) {
                             _LOGD("* Back in game again (from default sequence)!");
                             g_state.store(GameState::InGame, std::memory_order_release);
                             if (g_currPlayer) {
@@ -1219,8 +1254,8 @@ void Damage_Hook(
             g_state.store(GameState::Idle, std::memory_order_release);
             resetAdaptiveTriggers();
             g_currWeapon = nullptr;
-            g_HasAmmo.clear(); // reset ammo info
-            resetAmmoPtrs();
+            //g_HasAmmo.clear(); // reset ammo info
+            //resetAmmoPtrs();
             _LOGD("* Exiting to main menu! Switching to Idle state...");
             return;
         }
