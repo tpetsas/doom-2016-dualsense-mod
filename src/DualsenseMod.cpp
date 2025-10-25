@@ -215,8 +215,8 @@ void InitTriggerSettings() {
                         TriggerMode::Rigid, {}
                 ),
                 .R2 = new TriggerSetting (
-                        TriggerMode::Rigid_A,
-                        {209, 42, 232, 192, 232, 209, 232}
+                        TriggerProfile::MultiplePositionFeeback,
+                        {4, 7, 0, 2, 4, 6, 0, 3, 6, 0}
                 )
             }
         },
@@ -229,7 +229,6 @@ void InitTriggerSettings() {
                 .R2 = new TriggerSetting (
                         TriggerProfile::Vibration,
                         {0, 4, 10}
-                        //{3, 4, 14}
                 )
             }
         },
@@ -237,12 +236,23 @@ void InitTriggerSettings() {
             "weapon/zion/player/sp/heavy_rifle_heavy_ar",
             {
                 .L2 = new TriggerSetting (
-                        TriggerProfile::Vibration,
-                        {1, 10, 8}
+                        TriggerMode::Rigid, {}
                 ),
                 .R2 = new TriggerSetting (
                         TriggerProfile::MultiplePositionVibration,
                         {14, 0, 1, 2, 3, 4, 5, 6, 7, 8, 8}
+                )
+            }
+        },
+        {
+            "weapon/zion/player/sp/heavy_rifle_heavy_ar_mod",
+            {
+                .L2 = new TriggerSetting (
+                        TriggerMode::Rigid, {}
+                ),
+                .R2 = new TriggerSetting (
+                        TriggerProfile::MultiplePositionVibration,
+                        {15, 0, 1, 4, 6, 7, 8, 8, 7, 6, 4}
                 )
             }
         },
@@ -257,6 +267,18 @@ void InitTriggerSettings() {
                         {0, 3, 8, 8}
                 )
 
+            }
+        },
+        {
+            "weapon/zion/player/sp/rocket_launcher_mod",
+            {
+                .L2 = new TriggerSetting (
+                        TriggerMode::Rigid, {}
+                ),
+                .R2 = new TriggerSetting (
+                        TriggerMode::Rigid_A,
+                        {209, 42, 232, 192, 232, 209, 232}
+                )
             }
         },
         {
@@ -289,13 +311,12 @@ void InitTriggerSettings() {
             "weapon/zion/player/sp/chaingun_mod",
             {
                 .L2 = new TriggerSetting (
-                        TriggerProfile::MultiplePositionVibration,
-                        {11, 1, 3, 5, 7, 7, 8, 8, 8, 8, 8}
+                        TriggerProfile::SlopeFeedback,
+                        {0, 5, 1, 8}
                 ),
-                // maybe bump up this one?
                 .R2 = new TriggerSetting (
                         TriggerProfile::MultiplePositionVibration,
-                        {11, 1, 3, 5, 7, 7, 8, 8, 8, 8, 8}
+                        {21, 1, 3, 5, 7, 7, 8, 8, 8, 8, 8}
                 )
             }
         },
@@ -313,15 +334,28 @@ void InitTriggerSettings() {
             }
         },
         {
-            "weapon/zion/player/sp/gauss_cannon",
+            "weapon/zion/player/sp/gauss_rifle",
             {
                 .L2 = new TriggerSetting (
-                        TriggerMode::Pulse_B,
-                        {238, 215, 66, 120, 43, 160, 215}
+                        TriggerProfile::Machine,
+                        {7, 9, 0, 1, 8, 1}
                 ),
                 .R2 = new TriggerSetting (
+                        TriggerProfile::Galloping,
+                        {1, 3, 1, 6, 40}
+                )
+            }
+        },
+        {
+            "weapon/zion/player/sp/gauss_rifle_mod",
+            {
+                .L2 = new TriggerSetting (
                         TriggerProfile::Machine,
-                        {1, 8, 3, 3, 184, 0}
+                        {4, 9, 1, 2, 40, 0}
+                ),
+                .R2 = new TriggerSetting (
+                        TriggerProfile::Galloping,
+                        {1, 3, 1, 6, 40}
                 )
             }
         },
@@ -343,7 +377,6 @@ void InitTriggerSettings() {
 bool hasModSettings(std::string weaponName);
 void SendTriggers(std::string weaponName, bool mod = false);
 void SendTriggers(std::string weaponName, bool mod) {
-#if 1
     std::string weaponId = std::string(weaponName);
     if (mod) {
         if (!hasModSettings(weaponName)) {
@@ -362,7 +395,6 @@ void SendTriggers(std::string weaponName, bool mod) {
     else
         dualsensitive::setRightTrigger (t.R2->profile, t.R2->extras);
     _LOGD("Adaptive Trigger settings sent successfully!");
-#endif
 }
 
 
@@ -410,17 +442,13 @@ void print_state()
     }
 }
 
-//"weapon/zion/player/sp/fists"
-//"weapon/zion/player/sp/fists_berserk"
-//"weapon/zion/player/sp/fists_virtualGUI"
-
 std::vector<std::string> g_WeaponList = {
     "weapon/zion/player/sp/pistol",
     "weapon/zion/player/sp/shotgun",
     "weapon/zion/player/sp/chainsaw",
     "weapon/zion/player/sp/heavy_rifle_heavy_ar",
     "weapon/zion/player/sp/plasma_rifle",
-    "weapon/zion/player/sp/gauss_cannon",
+    "weapon/zion/player/sp/gauss_rifle",
     "weapon/zion/player/sp/rocket_launcher",
     "weapon/zion/player/sp/chaingun",
     "weapon/zion/player/sp/double_barrel",
@@ -430,7 +458,10 @@ std::vector<std::string> g_WeaponList = {
 
 static std::vector<std::string> g_WeaponsWithModSettings = {
     "weapon/zion/player/sp/shotgun",
-    "weapon/zion/player/sp/chaingun"
+    "weapon/zion/player/sp/chaingun",
+    "weapon/zion/player/sp/rocket_launcher",
+    "weapon/zion/player/sp/heavy_rifle_heavy_ar",
+    "weapon/zion/player/sp/gauss_rifle",
 };
 
 static bool hasModSettings(std::string weaponName) {
@@ -441,32 +472,34 @@ static bool hasModSettings(std::string weaponName) {
     ) != g_WeaponsWithModSettings.end();
 }
 
-// XXX NOTE: pistol has infinite ammo so it's not in the following list
 std::vector<std::string> g_AmmoList = {
     "bullets",  // heavy_rifle_heavy_ar, chaingun
     "shells",   // shotgun, double_barrel
     "rockets",  // rocket_launcher
-    "plasma",   // plasma_rifle, gauss_cannon
+    "plasma",   // plasma_rifle, gauss_rifle
     "cells",    // bfg
     "fuel"      // chainsaw
 };
 
 // weapon name to ammo
 static std::unordered_map<std::string, std::string> g_WeaponToAmmoType = {
-  {"weapon/zion/player/sp/fists",                "infinite"},
-  {"weapon/zion/player/sp/fists_berserk",        "infinite"},
-  {"weapon/zion/player/sp/pistol",               "infinite"},
-  {"weapon/zion/player/sp/heavy_rifle_heavy_ar", "bullets"},
-  {"weapon/zion/player/sp/chaingun",             "bullets"},
-  {"weapon/zion/player/sp/chaingun_mod",         "bullets"},
-  {"weapon/zion/player/sp/shotgun",              "shells"},
-  {"weapon/zion/player/sp/shotgun_mod",          "shells"},
-  {"weapon/zion/player/sp/double_barrel",        "shells"},
-  {"weapon/zion/player/sp/rocket_launcher",      "rockets"},
-  {"weapon/zion/player/sp/plasma_rifle",         "plasma"},
-  {"weapon/zion/player/sp/gauss_cannon",         "plasma"},
-  {"weapon/zion/player/sp/bfg",                  "cells"},
-  {"weapon/zion/player/sp/chainsaw",             "fuel"},
+  {"weapon/zion/player/sp/fists",                    "infinite"},
+  {"weapon/zion/player/sp/fists_berserk",            "infinite"},
+  {"weapon/zion/player/sp/pistol",                   "infinite"},
+  {"weapon/zion/player/sp/heavy_rifle_heavy_ar",     "bullets"},
+  {"weapon/zion/player/sp/heavy_rifle_heavy_ar_mod", "bullets"},
+  {"weapon/zion/player/sp/chaingun",                 "bullets"},
+  {"weapon/zion/player/sp/chaingun_mod",             "bullets"},
+  {"weapon/zion/player/sp/shotgun",                  "shells"},
+  {"weapon/zion/player/sp/shotgun_mod",              "shells"},
+  {"weapon/zion/player/sp/double_barrel",            "shells"},
+  {"weapon/zion/player/sp/rocket_launcher",          "rockets"},
+  {"weapon/zion/player/sp/rocket_launcher_mod",      "rockets"},
+  {"weapon/zion/player/sp/plasma_rifle",             "plasma"},
+  {"weapon/zion/player/sp/gauss_rifle",              "plasma"},
+  {"weapon/zion/player/sp/gauss_rifle_mod",          "plasma"},
+  {"weapon/zion/player/sp/bfg",                      "cells"},
+  {"weapon/zion/player/sp/chainsaw",                 "fuel"},
 };
 
 
@@ -543,9 +576,6 @@ using MenuDraw_t   = void (__fastcall*)(void* self /*maybe*/, void* /*renderCtx?
 using _LevelLoadCompleted =
                     void (__fastcall*)(long long *this_idLoadScreen);
 
-using _EventIdFromName =
-                    void (__fastcall*)(void *eventSystem, const char *eventName);
-
 
 using _UpdateAmmo =
                     int (__fastcall *)(void *ammo, int delta, char clamp);
@@ -556,6 +586,12 @@ using _GetWeaponFromDecl =
 
 using _SetFireMode =
                     bool(__fastcall*)(void* weapon, uint32_t mode, char allowSame);
+
+using _idMenuManagerShell_Activate =
+                    void (__fastcall *)(void *self, uint32_t stateId);
+
+using _idHandsUpdate =
+                    void(__fastcall*) (void *self, void *state);
 
 // handle to pointer resolution. It takes a 64-bit handle/id and returns a real
 // object pointer (FUN_14142C870)
@@ -590,13 +626,6 @@ LevelLoadCompleted (
         "48 89 5c 24 08 48 89 74 24 10 57 48 83 ec 20 48 8b d9 48 8d 0d 3f 8d 1d 01 e8 e2 c6 c0 fe"
 );
 _LevelLoadCompleted LevelLoadCompleted_Original = nullptr;
-
-// Function to monitor game events in order to track game lifetime in our FSM
-RVA<_EventIdFromName>
-EventIdFromName (
-    "40 57 48 83 ec 70 48 c7 44 24 28 fe ff ff ff 48 89 9c 24 90 00 00 00 48 8b 05 02 f0 ff 03 48 33 c4 48 89 44 24 60"
-);
-_EventIdFromName EventIdFromName_Original = nullptr;
 
 // Function that applies damage to player
 RVA<_Damage>
@@ -640,6 +669,12 @@ SetFireMode(
     "44 88 44 24 18 55 56 57 41 54 41 55 41 56 41 57 48 83 ec 60 48 c7 44 24 40 fe ff ff ff 48 89 9c 24 b8 00 00 00 44 8b f2 48 8b f9 8b 89 d4 08 00 00 44 8b c9 83 f9 ff 44 0f 44 c9 48 8b 77 30"
 );
 _SetFireMode SetFireMode_Original = nullptr;
+
+RVA<_idHandsUpdate>
+idHandsUpdate(
+"48 8b c4 55 56 57 41 54 41 55 41 56 41 57 48 8d a8 38 f3 ff ff 48 81 ec 90 0d 00 00 48 c7 85 a0 00 00 00 fe ff ff ff 48 89 58 18 0f 29 70 b8 0f 29 78 a8 44 0f 29 40 98"
+);
+_idHandsUpdate idHandsUpdate_Original = nullptr;
 
 // Utility functions
 
@@ -693,13 +728,11 @@ static void FindCurrWeaponHandle (Player *player) {
     }
 }
 
-#if 1
 static Weapon *GetCurrentWeaponAlter (Player *player) {
     uint64_t h2  = *(uint64_t*)((uint8_t*)player + 0x9788);
     void*    p2  = HandleToPointer(h2);
     return (Weapon*)p2;
 }
-#endif
 
 static inline Weapon *GetCurrentWeapon (Player *player) {
     if (!player || !HandleToPointer) {
@@ -787,6 +820,10 @@ namespace DualsenseMod {
             SetFireMode.GetUIntPtr()
         );
 
+        _LOG("idHandsUpdate at %p",
+            idHandsUpdate.GetUIntPtr()
+        );
+
         _LOG("GetWeaponFromDecl at %p",
             GetWeaponFromDecl.GetUIntPtr()
         );
@@ -799,43 +836,43 @@ namespace DualsenseMod {
             LevelLoadCompleted.GetUIntPtr()
         );
 
-        _LOG("EventIdFromName at %p",
-            EventIdFromName.GetUIntPtr()
-        );
-
         if (!g_doomBaseAddr) {
             _LOGD("DOOM base address is not set!");
             return false;
         }
 
-        if (!OnWeaponSelected || !SelectWeaponByDeclExplicit || !HandleToPointer || !LevelLoadCompleted || !EventIdFromName || !UpdateWeapon || !UpdateAmmo || !SetFireMode || !GetWeaponFromDecl)
+        if (!OnWeaponSelected || !SelectWeaponByDeclExplicit || !HandleToPointer || !LevelLoadCompleted || !UpdateWeapon || !UpdateAmmo || !SetFireMode || !idHandsUpdate || !GetWeaponFromDecl)
             return false;
 
         return true;
     }
 
     void resetAdaptiveTriggers() {
-#if 1
         dualsensitive::setLeftTrigger(TriggerProfile::Normal);
         dualsensitive::setRightTrigger(TriggerProfile::Normal);
         _LOGD("Adaptive Triggers reset successfully!");
-#endif
+    }
+
+
+    void noAmmoAdaptiveTriggers() {
+        dualsensitive::setLeftTrigger(TriggerProfile::Normal);
+        dualsensitive::setRightTrigger(TriggerProfile::GameCube);
+        _LOGD("No Ammo Adaptive Triggers set successfully!");
     }
 
     void sendAdaptiveTriggersForCurrentWeapon(bool mod = false);
     void sendAdaptiveTriggersForCurrentWeapon(bool mod) {
-#if 1
         char * currWeaponName = GetWeaponName (
                 reinterpret_cast<long long*>(g_currWeapon)
         );
+        _LOGD("* curr weapon: %s!", currWeaponName);
         if (currWeaponName && HasAmmo(currWeaponName)){
             _LOGD("* Sending adaptive trigger setting!");
             SendTriggers(currWeaponName, mod);
             return;
         }
         _LOGD("* No valid weapon name or no ammo - resetting triggers!");
-        resetAdaptiveTriggers();
-#endif
+        noAmmoAdaptiveTriggers();
     }
 
     void OnWeaponSelected_Hook(void *player, long long *weapon) {
@@ -857,33 +894,18 @@ namespace DualsenseMod {
         OnWeaponSelected_Original(player, weapon);
 
         // XXX uncomment to find the idPlayer's current weapon handler
+        // if there is a new update of the game out
         //FindCurrWeaponHandle((Player *) player);
-
-        //Weapon *w = GetCurrentWeaponAlter(player);
-        //_LOGD("* Startup weapon: %s", GetWeaponName((long long *)w));
 
         return;
     }
 
-    void FSM(const char *eventName);
     void UpdateWeapon_Hook (void *player) {
 
         if (!g_currPlayer) {
             _LOGD("* set idPlayer!");
             g_currPlayer = player;
         }
-#if 0
-        if (!g_currWeapon) {
-            Weapon* weapon = GetCurrentWeaponAlter(player); // uses 0x9788 + HandleToPointer
-            if (weapon) {
-                const char* name = GetWeaponName(reinterpret_cast<long long*>(weapon));
-                if (name && name[0]) {
-                    _LOGD("* idPlayer::UpdateWeapon hook - curr weapon: %s", name);
-                    g_currWeapon = weapon;
-                }
-            }
-        }
-#endif
 
         UpdateWeapon_Original(player);
         return;
@@ -926,10 +948,6 @@ int UpdateAmmo_Hook (void *ammo, int delta, char clamp) {
         _LOGD("g_AmmoPtrs[%s] = %p, |(%p)|", ammoType.c_str(), ammo, g_AmmoPtrs[ammoType]);
     }
 
-#if 0
-    if (!g_weapon_to_ammo)
-        TryDeriveWeaponToAmmoOffset(g_currWeapon, ammo);
-#endif
     return ret;
 }
 
@@ -959,16 +977,60 @@ bool SetFireMode_Hook(void* weapon, uint32_t mode, char allowSame) {
     if (ok && mode != g_previousMode) {
         print_state();
         _LOGD("* SetFireMode hook! weapon: %p, curr weapon: %p  | g_previousMode: %d, current: %d",
-                //|| wMode: %d || state: %d",
                 weapon, g_currWeapon,
                 g_previousMode, mode
-                //, wMode,
-                //(int) secTrigger
         );
         sendAdaptiveTriggersForCurrentWeapon((bool)mode);
     }
     g_previousMode = mode;
     return ok;
+}
+
+
+
+static inline bool CallIsDead(void* player);
+static std::atomic<uint64_t> g_lastHandsBeat{0}; // perf counter in ms
+//static std::atomic<bool>     g_inLoad{false};
+static inline uint64_t NowMs();
+
+void idHandsUpdate_Hook(void *self, void * state) {
+    idHandsUpdate_Original(self, state);
+    if (g_state.load() == GameState::Idle)
+        return;
+    // Always tick the heartbeat when we are truly in gameplay.
+    if (g_currPlayer && !CallIsDead(g_currPlayer)) {
+        g_lastHandsBeat.store(NowMs(), std::memory_order_relaxed);
+        if (g_state.load() != GameState::InGame) {
+            g_state.store(GameState::InGame);
+            _LOGD("[FSM] -> InGame (hands ticking)");
+            // replay last trigger settings here
+            sendAdaptiveTriggersForCurrentWeapon();
+        }
+    }
+    return;
+}
+
+
+static void MenuPauseWatcher() {
+ const uint64_t THRESHOLD_MS = 350;
+    for (;;) {
+        std::this_thread::sleep_for(std::chrono::milliseconds(75));
+        //if (g_inLoad.load(std::memory_order_relaxed)) continue;
+        if (g_state.load(std::memory_order_relaxed) == GameState::Idle) continue;
+
+        const uint64_t last = g_lastHandsBeat.load(std::memory_order_relaxed);
+        const uint64_t age  = NowMs() - last;
+
+        // purely heartbeat-based pause detection
+        if (age > THRESHOLD_MS) {
+            if (g_state.load(std::memory_order_relaxed) != GameState::Paused) {
+                g_state.store(GameState::Paused, std::memory_order_relaxed);
+                _LOGD("[FSM] -> Paused (hands stalled %.0f ms)", double(age));
+                resetAdaptiveTriggers();
+            }
+        }
+        // Resume is handled in idHandsUpdate_Hook when it ticks again.
+    }
 }
 
 // optional global flag for your mod
@@ -985,22 +1047,8 @@ static inline bool CallIsDead(void* player)
     if (!vtbl) return false;
     auto IsDeadFn = reinterpret_cast<_IsDead>(vtbl[0x6C8 / 8]); // index, not byte offset
     return IsDeadFn ? IsDeadFn(player) : false;
-#if 0
-    if (!player) return false;
-    // vtable-based call to function pointer at offset 0x6C8
-    auto** vtbl = reinterpret_cast<uintptr_t**>(player);
-    auto addr   = *vtbl ? *vtbl : nullptr;
-    if (!addr) return false;
-
-    auto fnPtr = *reinterpret_cast<uintptr_t*>(reinterpret_cast<uint8_t*>(*vtbl) + 0x6C8);
-    if (!fnPtr) return false;
-
-    auto IsDead = reinterpret_cast<_IsDead>(fnPtr);
-    return IsDead(player);
-#endif
 }
 
-#if 1
 void Damage_Hook(
     void* player,
     void* inflictor,
@@ -1010,19 +1058,12 @@ void Damage_Hook(
     const float* dir,
     const float* hitInfo)
 {
-    //_LOGD("* Damage hook!");
-
-    // only care about local player
-    //if (player != g_currPlayer) {
     if (g_inDamage) {
         Damage_Original(player, inflictor, attacker, damageDecl, damageScale, dir, hitInfo);
         return;
     }
 
     g_inDamage = true;
-
-    // state before damage is applied
-    //const bool wasDead = (player == g_currPlayer) ? CallIsDead(player) : false;
 
     // let the game apply damage
     Damage_Original(player, inflictor, attacker, damageDecl, damageScale, dir, hitInfo);
@@ -1031,57 +1072,44 @@ void Damage_Hook(
         // state after damage
         const bool isDead = CallIsDead(player);
 
-        // alive -> dead detection
-        //if (!wasDead && isDead)
         if (isDead)
         {
-            //g_pendingDeath.store(true, std::memory_order_release);
-#if 1
             g_state.store(GameState::Idle, std::memory_order_release);
+            g_lastHandsBeat.store(NowMs(), std::memory_order_relaxed);
             resetAdaptiveTriggers();
             g_currWeapon = nullptr;
             g_HasAmmo.clear(); // reset ammo info
             resetAmmoPtrs();
             _LOGD("* Damage hook, Player is DEAD! Switching to Idle state...");
-#endif
         }
     }
     g_inDamage = false;
 }
-#endif
-    unsigned long long SelectWeaponByDeclExplicit_Hook(long long *player,
-                                long long decl, char param_3, char param_4) {
-        _LOGD("* idPlayer::SelectWeaponByDeclExplicit hook!!!");
 
-        Weapon *weapon = nullptr;
-        if (long long *mgr = (long long *) GetWeaponMgr(player)) {
-            weapon = (Weapon *)GetWeaponFromDecl(mgr, decl);
-            if (weapon) {
-                const char* name = GetWeaponName(reinterpret_cast<long long*>(weapon));
-                if (name && name[0]) {
-                    _LOGD("* (init) curr weapon: %s", name);
-                }
-                g_currWeapon = weapon;
-            }
-        }
-        unsigned long long ret = SelectWeaponByDeclExplicit_Original(player, decl, param_3, param_4);
-/*
-        Weapon* weapon = GetCurrentWeaponAlter(player);
+unsigned long long SelectWeaponByDeclExplicit_Hook(long long *player,
+                            long long decl, char param_3, char param_4) {
+    _LOGD("* idPlayer::SelectWeaponByDeclExplicit hook!!!");
+
+    Weapon *weapon = nullptr;
+    if (long long *mgr = (long long *) GetWeaponMgr(player)) {
+        weapon = (Weapon *)GetWeaponFromDecl(mgr, decl);
         if (weapon) {
             const char* name = GetWeaponName(reinterpret_cast<long long*>(weapon));
             if (name && name[0]) {
                 _LOGD("* (init) curr weapon: %s", name);
             }
-        } else {
-                _LOGD("* (init) curr weapon: (not found!)");
+            g_currWeapon = weapon;
         }
-*/
-        // reset player here (paused used for load the latest checkpoint from the main menu)
-        if (g_currPlayer && (g_state == GameState::Idle || g_state == GameState::Paused))
-            g_state.store(GameState::Idle, std::memory_order_release);
-            g_currPlayer = nullptr;
-        return ret;
     }
+    unsigned long long ret = SelectWeaponByDeclExplicit_Original(player, decl, param_3, param_4);
+
+    // reset player here (paused used for load the latest checkpoint from the main menu)
+    if (g_currPlayer && (g_state == GameState::Idle || g_state == GameState::Paused)) {
+        g_state.store(GameState::Idle, std::memory_order_release);
+        g_currPlayer = nullptr;
+    }
+    return ret;
+}
 
     // util
     bool startsWith(const char* s, const char* prefix) {
@@ -1090,160 +1118,9 @@ void Damage_Hook(
         return !std::strncmp(s, prefix, m);
     }
 
-    // consecutive "default" events when in paused
-    static unsigned int consDefaultCnt = 0;
-    static bool previousEventWasDefault = false;
-    void FSM(const char *eventName) {
-        switch(g_state) {
-            case GameState::Idle:
-                // idle state can be changed only from LevelLoadCompleted hook
-                if (startsWith(eventName, "GameStarted")) {
-                    g_state.store(GameState::InGame, std::memory_order_release);
-                    _LOGD("* Game started!");
-                    if (g_currPlayer) {
-                        _LOGD("  - idPlayer already set. Check for current weapon...");
-                        // TODO: create a function that does that
-                        Weapon* weapon = GetCurrentWeaponAlter(g_currPlayer);
-                        if (weapon) {
-                            const char* name = GetWeaponName(reinterpret_cast<long long*>(weapon));
-                            if (name && name[0]) {
-                                g_currWeapon = weapon;
-                                bool hasAmmo = HasAmmo(name);
-                                _LOGD (
-                                        "* curr weapon = %s, hasAmmo: %s\n",
-                                        name, hasAmmo ? "true" : "false"
-                                );
-
-                            }
-                            // enable triggers
-                            sendAdaptiveTriggersForCurrentWeapon();
-                        } else {
-                                _LOGD("* curr weapon: (not found!)");
-                        }
-                    }
-
-                }
-                break;
-            case GameState::InGame:
-                if (startsWith(eventName, "off")) {
-                    // skip this state
-                    ;
-                    //g_state.store(GameState::Idle, std::memory_order_release);
-                    //_LOGD("* Player died! Switching to Idle state...");jk
-                    //g_currWeapon = nullptr;
-                    // disable triggers
-                } else if (startsWith(eventName, "select")) {
-                    g_state.store(GameState::Paused, std::memory_order_release);
-                    if (g_currPlayer)
-                        _LOGD("* Game paused!");
-                    // disable triggers
-                    resetAdaptiveTriggers();
-                }
-                break;
-            case GameState::Paused:
-                _LOGD("we are paused, event seen: %s", eventName);
-#if 0
-                if (startsWith(eventName, "off")) {
-                    g_state.store(GameState::Idle, std::memory_order_release);
-                    g_currWeapon = nullptr;
-                    g_HasAmmo.clear(); // reset ammo info
-                    resetAmmoPtrs();
-                    _LOGD("* Rare, but game ended! Switching to Idle state...");
-                    // disable triggers
-                    resetAdaptiveTriggers();
-                } else
-#endif
-                // treat berserk as default
-                if (startsWith(eventName, "default") || startsWith(eventName, "berserk")) {
-                    if (!previousEventWasDefault) {
-                        consDefaultCnt = 1;
-                        previousEventWasDefault = true;
-                    } else {
-                        if(consDefaultCnt++ >= 50) {
-                            _LOGD("* Back in game again (from default sequence)!");
-                            g_state.store(GameState::InGame, std::memory_order_release);
-                            if (g_currPlayer) {
-                                sendAdaptiveTriggersForCurrentWeapon();
-                            }
-                            consDefaultCnt = 0;
-                            previousEventWasDefault = false;
-                        }
-                    }
-                } else if (startsWith(eventName, "on") || startsWith(eventName, "throb")) {
-                    g_state.store(GameState::InGame, std::memory_order_release);
-                    if (g_currPlayer) {
-                        _LOGD("* Back in game again!");
-                        //sendAdaptiveTriggersForCurrentWeapon();
-#if 1
-
-                        // TODO: create a function that does that
-                        Weapon* weapon = GetCurrentWeaponAlter(g_currPlayer);
-                        if (weapon) {
-                            const char* name = GetWeaponName(reinterpret_cast<long long*>(weapon));
-                            if (name && name[0]) {
-                                _LOGD("* curr weapon: %s", name);
-                                g_currWeapon = weapon;
-                            }
-                            // enable triggers
-                            sendAdaptiveTriggersForCurrentWeapon();
-                        } else {
-                                _LOGD("* curr weapon: (not found!)");
-                        }
-#endif
-
-                    }
-                    // enable triggers
-                    //sendAdaptiveTriggersForCurrentWeapon();
-                    previousEventWasDefault = false;
-                    consDefaultCnt = 0;
-                } else {
-                    previousEventWasDefault = false;
-                    consDefaultCnt = 0;
-                }
-                break;
-            default:
-                _LOG("* Unsupported state! How did we get there?!");
-        }
-    }
-
-    // helper functions to minimize the events sent to FSM
-    static std::atomic<uint64_t> g_lastEventTickOn{0};
-    static std::atomic<uint64_t> g_lastEventTickOff{0};
-    static std::atomic<uint64_t> g_lastEventTickSelect{0};
-    static constexpr uint64_t EVENT_DEBOUNCE_MS = 150; // tune
-
     static inline uint64_t NowMs() {
         using namespace std::chrono;
         return duration_cast<milliseconds>(steady_clock::now().time_since_epoch()).count();
-    }
-    static inline bool Debounce(std::atomic<uint64_t>& gate) {
-        const auto now = NowMs();
-        const auto prev = gate.load(std::memory_order_relaxed);
-        if (now - prev < EVENT_DEBOUNCE_MS) return false;
-        gate.store(now, std::memory_order_relaxed);
-        return true;
-    }
-
-    void EventIdFromName_Hook (void *eventSystem, const char *eventName) {
-        //_LOGD("EventIdFromName hook, event name: %s", eventName);
-        if (g_currPlayer && eventName) {
-#if 0
-            if (startsWith(eventName, "on")) {
-                if (Debounce(g_lastEventTickOn)) FSM(eventName);
-            } else if (startsWith(eventName, "off")) {
-                if (Debounce(g_lastEventTickOff)) FSM(eventName);
-            } else if (startsWith(eventName, "select")) {
-                if (Debounce(g_lastEventTickSelect)) FSM(eventName);
-            }
-#endif
-            //if (startsWith(eventName, "on") || startsWith(eventName, "off") || startsWith(eventName, "select"))
-                FSM(eventName);
-            // You can add more *exact* names here once confirmed,
-            // e.g. "select", "GameStarted" (though you already call that elsewhere).
-        }
-        //FSM(eventName);
-        EventIdFromName_Original(eventSystem, eventName);
-        return;
     }
 
     void LevelLoadCompleted_Hook (long long *this_idLoadScreen) {
@@ -1254,13 +1131,31 @@ void Damage_Hook(
             g_state.store(GameState::Idle, std::memory_order_release);
             resetAdaptiveTriggers();
             g_currWeapon = nullptr;
+            g_lastHandsBeat.store(NowMs(), std::memory_order_relaxed);
             //g_HasAmmo.clear(); // reset ammo info
             //resetAmmoPtrs();
             _LOGD("* Exiting to main menu! Switching to Idle state...");
             return;
         }
         if (g_currPlayer && g_state == GameState::Idle) {
-            FSM("GameStarted");
+            g_state.store(GameState::InGame, std::memory_order_release);
+            Weapon* weapon = GetCurrentWeaponAlter(g_currPlayer);
+            if (weapon) {
+                const char* name = GetWeaponName(reinterpret_cast<long long*>(weapon));
+                if (name && name[0]) {
+                    g_currWeapon = weapon;
+                    bool hasAmmo = HasAmmo(name);
+                    _LOGD (
+                            "* curr weapon = %s, hasAmmo: %s\n",
+                            name, hasAmmo ? "true" : "false"
+                    );
+
+                }
+                // enable triggers
+                sendAdaptiveTriggersForCurrentWeapon();
+            } else {
+                    _LOGD("* curr weapon: (not found!)");
+            }
         }
         return;
     }
@@ -1308,7 +1203,6 @@ void Damage_Hook(
             _LOG("FATAL: Failed to install UpdateAmmo hook.");
             return false;
         }
-        //safe
 
         MH_CreateHook (
             SetFireMode,
@@ -1317,6 +1211,15 @@ void Damage_Hook(
         );
         if (MH_EnableHook(SetFireMode) != MH_OK) {
             _LOG("FATAL: Failed to install SetFireMode hook.");
+            return false;
+        }
+        MH_CreateHook (
+            idHandsUpdate,
+            idHandsUpdate_Hook,
+            reinterpret_cast<LPVOID *>(&idHandsUpdate_Original)
+        );
+        if (MH_EnableHook(idHandsUpdate) != MH_OK) {
+            _LOG("FATAL: Failed to install idHandsUpdate hook.");
             return false;
         }
         MH_CreateHook (
@@ -1335,15 +1238,6 @@ void Damage_Hook(
         );
         if (MH_EnableHook(LevelLoadCompleted) != MH_OK) {
             _LOG("FATAL: Failed to install LevelLoadCompleted hook.");
-            return false;
-        }
-        MH_CreateHook (
-            EventIdFromName,
-            EventIdFromName_Hook,
-            reinterpret_cast<LPVOID *>(&EventIdFromName_Original)
-        );
-        if (MH_EnableHook(EventIdFromName) != MH_OK) {
-            _LOG("FATAL: Failed to install EventIdFromName hook.");
             return false;
         }
         _LOG("Hooks applied successfully!");
@@ -1389,7 +1283,6 @@ std::string wstring_to_utf8(const std::wstring& ws) {
     void Init() {
         g_logger.Open("./mods/dualsensemod.log");
         _LOG("DOOM (2016) DualsenseMod v1.0 by Thanos Petsas (SkyExplosionist)");
-        //_LOG("Game version: %" PRIX64, Utils::GetGameVersion());
         g_doomBaseAddr = GetModuleHandle(NULL);
         _LOG("Module base: %p", g_doomBaseAddr);
 
@@ -1414,33 +1307,6 @@ std::string wstring_to_utf8(const std::wstring& ws) {
         InitTriggerSettings();
 
         ApplyHooks();
-#if 0
-        std::thread([]{
-    for (;;) {
-        // wait for player to be captured by your SelectWeaponByDeclExplicit hook
-        auto player = g_currPlayer;
-        if (!player) { Sleep(10); continue; }
-
-        // optional: make sure resolver is ready
-        if (!HandleToPointer) { Sleep(10); continue; }
-
-        // read handle@player+0x9788 -> Weapon*
-        Weapon* weapon = GetCurrentWeaponAlter(player); // uses 0x9788 + HandleToPointer
-        if (weapon) {
-            const char* name = GetWeaponName(reinterpret_cast<long long*>(weapon));
-            if (name && name[0]) {
-                g_currWeapon = weapon;
-                _LOGD("* Startup weapon: %s", name);
-                break; // done
-            }
-        }
-        Sleep(10);
-    }
-}).detach();
-#endif
-
-
-#if 1
 
         CreateThread(nullptr, 0, [](LPVOID) -> DWORD {
             _LOG("Client starting DualSensitive Service...\n");
@@ -1475,7 +1341,10 @@ std::string wstring_to_utf8(const std::wstring& ws) {
             dualsensitive::sendPidToServer();
             return 0;
         }, nullptr, 0, nullptr);
-#endif
+
+        std::thread([]{
+            MenuPauseWatcher();
+        }).detach();
 
         _LOG("Ready.");
     }
