@@ -4,7 +4,7 @@
 
 A mod for DOOM (2016) that adds DualSense adaptive triggers for all the Weapons and its mods!
 
-Rip and tear until it is done! With DualSense it's much more fun! :godmode::metal:
+Rip and tear until it is done! With DualSense is much more fun! :godmode::metal:
 
 Built with the tools and technologies:
 
