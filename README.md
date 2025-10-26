@@ -4,7 +4,7 @@
 
 A mod for DOOM (2016) that adds DualSense adaptive triggers for all the Weapons and its mods!
 
-Rip and tear until it is done! With DualSense it's much more fun!
+Rip and tear until it is done! With DualSense it's much more fun! :godmode::metal:
 
 Built with the tools and technologies:
 
@@ -15,7 +15,10 @@ Built with the tools and technologies:
 [![Ghidra](https://tinyurl.com/yuv64wyh)](https://ghidra-sre.org/)
 [![Radare2](https://tinyurl.com/52tue3ve)](https://rada.re/n/radare2.html)
 
-<img width="512" alt="logo" src="https://github.com/user-attachments/assets/dc0e5cd3-47fa-4c78-a27d-d0524a01b67d" />
+<!-- <img width="512" alt="logo" src="https://github.com/user-attachments/assets/dc0e5cd3-47fa-4c78-a27d-d0524a01b67d" /> -->
+<!-- <img width="1536" height="1024" alt="logo" src="https://github.com/user-attachments/assets/d7da38ec-ae70-4390-bcd7-def6b7af6402" /> -->
+<img width="768" height="512" alt="logo" src="https://github.com/user-attachments/assets/d7da38ec-ae70-4390-bcd7-def6b7af6402" />
+
 
 ## Overview
 
@@ -64,7 +67,7 @@ This is a known limitation affecting many **open-source projects** that don't us
 
 **2. Double click the installer to run it:**
 
-<img width="491" alt="setup" src="https://github.com/user-attachments/assets/02d96c32-27cb-49e4-baf3-782187208b0b" />
+<img width="476" height="707" alt="install" src="https://github.com/user-attachments/assets/ff00e1f4-055f-4635-bda5-3ea9e43af266" />
 
 You may safely proceed by clicking:
 
@@ -78,17 +81,16 @@ You may safely proceed by clicking:
 <img width="476" height="707" alt="properties-unblock" src="https://github.com/user-attachments/assets/2943fa24-bd10-4d0a-9429-af231386bc00" />
 
 
-
-
 **3. Accept the disclaimer and follow the prompts until the setup is complete:**
 
-<img width="491" height="382" alt="disclaimer" src="https://github.com/user-attachments/assets/ace9f161-88f4-4af0-8ea0-02a027240634" />
-
+<!-- <img width="750" height="573" alt="image" src="https://github.com/user-attachments/assets/f6d0b9c7-94d0-4dbf-bb93-f4ddd1dcb49c" /> -->
+<img width="491" alt="disclaimer" src="https://github.com/user-attachments/assets/f6d0b9c7-94d0-4dbf-bb93-f4ddd1dcb49c" />
 
 
 **Once all steps are completed, you will reach the final screen indicating that the setup is finished:**
 
-<img width="491" height="383" alt="finished" src="https://github.com/user-attachments/assets/c0d28e1d-006c-43d7-a5de-f6f17c43655f" />
+<!-- <img width="750" height="573" alt="image" src="https://github.com/user-attachments/assets/2d24c4f2-48c0-44b0-a433-8d5a792c3466" /> -->
+<img width="491" alt="finished" src="https://github.com/user-attachments/assets/2d24c4f2-48c0-44b0-a433-8d5a792c3466" />
 
 
 
@@ -97,8 +99,7 @@ Now, you can experience the mod by just running the game.
 > [!NOTE]
 > If you have the game from Epic you need to add it to your Steam library first as the game doesn't have support for PS5 controller by default. Open your Steam client, go to **Games > Add a Non-Steam Game to My Library** and choose the game you want to add. If it's not listed, click Browse and find the game. Click Add Selected Programs and the game will now be listed in your Steam library.
 
-<img width="491" height="382" alt="add-to-steam" src="https://github.com/user-attachments/assets/41c26d01-0865-4c96-8841-5001c9c7d557" />
-
+<!--
 ### Manual Installation
 
 [proc-error-comment]: https://www.nexusmods.com/control/mods/108?tab=posts#comment-content-157259677
@@ -106,11 +107,11 @@ Now, you can experience the mod by just running the game.
 
 Someone got this error using the installer: `Error Runtime error (at 33:71): Could not call proc.` ([see comment][proc-error-comment]). While, I don't have a way to replicate it unfrortunately so I can solve it, here are the steps to install the mod manually if you experience any similar issues with the installer:
 
-Download the mod binaries ZIP file here: [Control-DualSensitive-Mod_Binaries.zip][binaries-link] and locate the directory of the game (for example for Steam this should be: `C:\Program Files (x86)\Steam\steamapps\common\Control`). Extract all the files straight in this directory so that the directory structure looks like:
+Download the mod binaries ZIP file here: [Control-DualSensitive-Mod_Binaries.zip][binaries-link] and locate the directory of the game (for example for Steam this should be: `C:\Program Files (x86)\Steam\steamapps\common\DOOM`). Extract all the files straight in this directory so that the directory structure looks like:
 
 ```
 Control
-    xinput1_4.dll
+    dinput8.dll
     plugins/
         dualsense-mod.ini
         dualsense-mod.dll
@@ -120,14 +121,15 @@ Control
 ```
 Unblock the `dualsensitive-service.exe`:
 
-Right-click the `Control/plugins/DualSensitive/dualsensitive-service.exe` and select **Properties → Check “Unblock” → Apply**
+Right-click the `DOOM/plugins/DualSensitive/dualsensitive-service.exe` and select **Properties → Check “Unblock” → Apply**
+-->
 
 ## Uninstallation
 
 To unisntall the game, simply go to **Settings > Add or remove programs**, locate the mod, choose uninstall and follow the prompts:
 
-<img width="491" alt="uninstall" src="https://github.com/user-attachments/assets/22c12d2a-42f6-47ab-935b-f314701b09bb" />
-
+<!--<img width="1024" height="752" alt="uninstall" src="https://github.com/user-attachments/assets/c6943839-fe5b-459b-8b55-4305b2caf454" />-->
+<img width="491" alt="uninstall" src="https://github.com/user-attachments/assets/c6943839-fe5b-459b-8b55-4305b2caf454" />
 
 ## Usage & Configuration
 [tray-options]: https://github.com/tpetsas/dualsensitive/blob/main/README.md#tray-application-options
@@ -148,10 +150,8 @@ In this configuration, the `debug=true` option of the `[app]` section will make 
 
 ## Issues
 
-Please report any bugs or flaws! I recommend to grab a debug version of the mod (e.g., [**dualsense-mod-debug.dll**](https://github.com/tpetsas/control-dualsense-mod/releases/download/1.0.0/dualsense-mod-debug.dll)) and enable the `debug` option in the configuration as described above ([Configuration](#configuration)) in order to get a fully verbose log when trying to replicate the issue, which will help me a lot with debugging the issue. Feel free to open an issue [here](https://github.com/tpetsas/control-dualsense-mod/issues) on github.
+Please report any bugs or flaws! I recommend to grab a debug version of the mod (e.g., [**dualsense-mod-debug.dll**]([https://github.com/tpetsas/control-dualsense-mod](https://github.com/tpetsas/doom-2016-dualsense-mod/releases/download/1.0.0/dualsense-mod-debug.dll)) and enable the `debug` option in the configuration as described above ([Configuration](#configuration)) in order to get a fully verbose log when trying to replicate the issue, which will help me a lot with debugging the issue. Feel free to open an issue [here](https://github.com/tpetsas/doom-2016-dualsense-mod/issues) on github.
 
 ## Credits
-
-[2kreg] for [Control Plugin Loader] and all the knowledge and examples from all their other Control mods! Thanks! :metal:
 
 [Tsuda Kageyu](https://github.com/tsudakageyu), [Michael Maltsev](https://github.com/m417z) & [Andrey Unis](https://github.com/uniskz) for [MinHook](https://github.com/TsudaKageyu/minhook)! :syringe:
