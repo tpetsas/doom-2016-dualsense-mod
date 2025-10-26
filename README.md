@@ -75,8 +75,8 @@ You may safely proceed by clicking:
 > If for any reason the "Run anyway" button is missing you can just do the process manually by:  
 > Right-click setup.exe → Properties → Check “Unblock” → Apply
 
-<!-- TODO: replace this one -->
-<!-- <img width="476" height="707" alt="properties-unblock" src="https://github.com/user-attachments/assets/2943fa24-bd10-4d0a-9429-af231386bc00" /> -->
+<!-- <img width="843" height="1133" alt="image" src="https://github.com/user-attachments/assets/180d8c3f-acb5-4186-b1df-460bed541d9e" /> -->
+<img width="491" height="1133" alt="image" src="https://github.com/user-attachments/assets/180d8c3f-acb5-4186-b1df-460bed541d9e" />
 
 
 **3. Accept the disclaimer and follow the prompts until the setup is complete:**
