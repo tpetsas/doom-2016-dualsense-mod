@@ -24,7 +24,7 @@ Built with the tools and technologies:
 
 This mod allows players with a Playstation 5 DualSense controller to play DOOM (2016) with adaptive triggers. The adaptive triggers are assigned based on the current weapon used.
 
-Mod Page: [**Nexus Mods — DOOM (2016) DualSense Mod**](https://www.nexusmods.com/doom/mods/???/)
+Mod Page: [**Nexus Mods — DOOM (2016) DualSense Mod**](https://www.nexusmods.com/doom/mods/105/)
 
 Installer: [**DOOM-DualSensitive-Mod_Setup.exe**][installer-link]
 
