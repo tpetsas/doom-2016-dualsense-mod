@@ -1,6 +1,6 @@
 # doom-2016-dualsense-mod
 
-[installer-link]: https://github.com/tpetsas/control-dualsense-mod/releases/download/v2.2.0/Control-DualSensitive-Mod_Setup.exe 
+[installer-link]: https://github.com/tpetsas/doom-2016-dualsense-mod/releases/download/v1.0.0/DOOM-DualSensitive-Mod_Setup.exe 
 
 A mod for DOOM (2016) that adds DualSense adaptive triggers for all the Weapons and its mods!
 
@@ -24,7 +24,7 @@ Built with the tools and technologies:
 
 This mod allows players with a Playstation 5 DualSense controller to play DOOM (2016) with adaptive triggers. The adaptive triggers are assigned based on the current weapon used.
 
-Mod Page: [**Nexus Mods — DOOM (2016) DualSense Mod**](https://www.nexusmods.com/control/mods/108/)
+Mod Page: [**Nexus Mods — DOOM (2016) DualSense Mod**](https://www.nexusmods.com/doom/mods/???/)
 
 Installer: [**DOOM-DualSensitive-Mod_Setup.exe**][installer-link]
 
@@ -34,17 +34,15 @@ Installer: [**DOOM-DualSensitive-Mod_Setup.exe**][installer-link]
 <a href="https://www.youtube.com/watch?v=ubN_qF-uWRU">
     <img src="https://github.com/user-attachments/assets/ba60759b-e5c1-421c-ac23-d36a8a7841b0"
         width="600"
-        title="Control Ultimate Edition DualSense Mod Showcase — Click to watch it!"
+        title="DOOM DualSense Mod Showcase — Click to watch it!"
     />
 </a>
 -->
 
 ## Features
 
-[Doom Plugin Loader]: https://www.nexusmods.com/control/mods/16
-
 This mod adds the following features:
-- Adaptive Triggers for both L2 and R2 for each weapon form
+- Adaptive Triggers for both L2 and R2 for each weapon and its respective mod
 - Adaptive triggers get disabled when the player is on an inner Menu or the game is paused
 
 ## Installation
@@ -102,15 +100,12 @@ Now, you can experience the mod by just running the game.
 <!--
 ### Manual Installation
 
-[proc-error-comment]: https://www.nexusmods.com/control/mods/108?tab=posts#comment-content-157259677
-[binaries-link]: https://github.com/tpetsas/control-dualsense-mod/releases/download/v2.2.0/Control-DualSensitive-Mod_Binaries.zip
+[binaries-link]: https://github.com/tpetsas/doom-2016-dualsense-mod/releases/download/v1.1.0/DOOM-DualSensitive-Mod_Binaries.zip
 
-Someone got this error using the installer: `Error Runtime error (at 33:71): Could not call proc.` ([see comment][proc-error-comment]). While, I don't have a way to replicate it unfrortunately so I can solve it, here are the steps to install the mod manually if you experience any similar issues with the installer:
-
-Download the mod binaries ZIP file here: [Control-DualSensitive-Mod_Binaries.zip][binaries-link] and locate the directory of the game (for example for Steam this should be: `C:\Program Files (x86)\Steam\steamapps\common\DOOM`). Extract all the files straight in this directory so that the directory structure looks like:
+Download the mod binaries ZIP file here: [DOOM-DualSensitive-Mod_Binaries.zip][binaries-link] and locate the directory of the game (for example for Steam this should be: `C:\Program Files (x86)\Steam\steamapps\common\DOOM`). Extract all the files straight in this directory so that the directory structure looks like:
 
 ```
-Control
+DOOM
     dinput8.dll
     plugins/
         dualsense-mod.ini
@@ -150,7 +145,7 @@ In this configuration, the `debug=true` option of the `[app]` section will make 
 
 ## Issues
 
-Please report any bugs or flaws! I recommend to grab a debug version of the mod (e.g., [**dualsense-mod-debug.dll**]([https://github.com/tpetsas/control-dualsense-mod](https://github.com/tpetsas/doom-2016-dualsense-mod/releases/download/1.0.0/dualsense-mod-debug.dll)) and enable the `debug` option in the configuration as described above ([Configuration](#configuration)) in order to get a fully verbose log when trying to replicate the issue, which will help me a lot with debugging the issue. Feel free to open an issue [here](https://github.com/tpetsas/doom-2016-dualsense-mod/issues) on github.
+Please report any bugs or flaws! I recommend to grab a debug version of the mod (e.g., [**dualsense-mod-debug.dll**]([https://github.com/tpetsas/doom-2016-dualsense-mod](https://github.com/tpetsas/doom-2016-dualsense-mod/releases/download/1.0.0/dualsense-mod-debug.dll)) and enable the `debug` option in the configuration as described above ([Configuration](#configuration)) in order to get a fully verbose log when trying to replicate the issue, which will help me a lot with debugging the issue. Feel free to open an issue [here](https://github.com/tpetsas/doom-2016-dualsense-mod/issues) on github.
 
 ## Credits
 
