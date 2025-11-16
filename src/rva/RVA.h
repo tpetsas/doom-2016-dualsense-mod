@@ -43,6 +43,12 @@ struct RVAData
 {
     std::unordered_map<int, uintptr_t> addr; // Map of runtime version to RVA.
     const char*     sig               = NULL;     // Signature
+
+    // for multiple signature support
+    std::vector<std::string> sigs;
+    // which of the multiple signatures matched (for logging)
+    const char* matchedSig = NULL;
+
     uintptr_t       effectiveAddress  = NULL;
     int             offset            = 0;
     int             indirectOffset    = 0;
@@ -105,6 +111,42 @@ public:
     }
 
     static void UpdateSingle(std::shared_ptr<RVAData> rvaData, int runtimeVersion = 0) {
+
+        if (!rvaData->sigs.empty() || rvaData->sig) {
+            // Build a candidate list: prefer 'sigs' if present; otherwise wrap 'sig'
+            std::vector<const char*> candidates;
+            if (!rvaData->sigs.empty()) {
+                for (auto& s : rvaData->sigs) candidates.push_back(s.c_str());
+            } else if (rvaData->sig) {
+                candidates.push_back(rvaData->sig);
+            }
+
+            for (auto* cand : candidates) {
+                auto pat = Utility::pattern(cand);
+                auto res = pat.count(1);
+                if (res.size() > 0) {
+                    rvaData->effectiveAddress =
+                        (uintptr_t)res.get(0).get<void>(rvaData->offset);
+
+                    if (rvaData->effectiveAddress && rvaData->indirectOffset != 0) {
+                        int32_t rel32 = 0;
+                        RVAUtils::ReadMemory(
+                            rvaData->effectiveAddress + rvaData->indirectOffset,
+                            &rel32, sizeof(int32_t));
+                        rvaData->effectiveAddress =
+                            rvaData->effectiveAddress + rvaData->instructionLength + rel32;
+                    }
+
+                    rvaData->matchedSig = cand;   // remember which one worked
+                    break;
+                }
+            }
+
+            return;
+        }
+
+        // fallback to default if only one signature is provided
+
         if (SHOW_ADDR != 1 && rvaData->addr.count(runtimeVersion) > 0) {
             rvaData->effectiveAddress = GetEffectiveAddress(rvaData->addr[runtimeVersion]);
         } else {
@@ -190,6 +232,17 @@ public:
         init(addr, sig, offset, indirectOffset, instructionLength);
     }
 
+    // Multiple Signature
+    RVA(std::initializer_list<const char*> list,
+        int offset = 0, int indirectOffset = 0, int instructionLength = 0) {
+        AddressMap addr;
+        init(addr, /*singleSig*/ nullptr, offset, indirectOffset, instructionLength);
+        // move strings into data->sigs
+        for (auto* s : list) data->sigs.emplace_back(s);
+        // keep 'sig' field pointing to first for legacy logs (optional)
+        if (!data->sigs.empty()) data->sig = data->sigs.front().c_str();
+    }
+
     // Default constructor (empty)
     RVA() {
         // do nothing
@@ -256,6 +309,7 @@ private:
     void init(AddressMap addr, const char* sig, int offset, int indirectOffset = 0, int instructionLength = 0) {
         data = std::make_shared<RVAData>();
         data->addr = addr;
+        // the following could be null if using multi-sig constructor
         data->sig = sig;
         data->offset = offset;
         data->indirectOffset = indirectOffset;
