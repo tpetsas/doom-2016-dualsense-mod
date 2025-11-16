@@ -1289,7 +1289,7 @@ std::string wstring_to_utf8(const std::wstring& ws) {
     void Init() {
         g_logger.Open("./mods/dualsensemod.log");
         _LOG(
-            "DOOM (2016) DualsenseMod v1.0 by Thanos Petsas (SkyExplosionist)");
+            "DOOM (2016) DualsenseMod v1.1 by Thanos Petsas (SkyExplosionist)");
         g_doomBaseAddr = GetModuleHandle(NULL);
         _LOG("Module base: %p", g_doomBaseAddr);
 
