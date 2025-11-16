@@ -596,7 +596,7 @@ using _idHandsUpdate =
                     void(__fastcall*) (void *self, void *state);
 
 // handle to pointer resolution. It takes a 64-bit handle/id and returns a real
-// object pointer (FUN_14142C870)
+// object pointer (FUN_14142C870 for Vulkan and FUN_14142c7d0 for OpenGL)
 using _HandleToPointer  = Weapon* (__fastcall*)(uint64_t);
 
 // idPlayer's vtable + 0xB20
@@ -619,16 +619,19 @@ _OnWeaponSelected OnWeaponSelected_Original = nullptr;
 // This function inits player with all the weapons owned before game starts
 RVA<_SelectWeaponByDeclExplicit>
 SelectWeaponByDeclExplicit (
+
     "48 89 5c 24 08 48 89 6c 24 10 48 89 74 24 18 57 41 56 41 57 48 83 ec 20 "
-    "83 3d 91"
+    "83 3d ? ? ? ? 00 45 0f b6"
+
 );
 _SelectWeaponByDeclExplicit SelectWeaponByDeclExplicit_Original = nullptr;
 
 // This function signals that level loading is complete
 RVA<_LevelLoadCompleted>
 LevelLoadCompleted (
-    "48 89 5c 24 08 48 89 74 24 10 57 48 83 ec 20 48 8b d9 48 8d 0d 3f 8d 1d "
-    "01 e8 e2 c6 c0 fe"
+    // Vulkan && OpenGL compatible
+    "48 89 5c 24 08 48 89 74 24 10 57 48 83 ec 20 48 8b d9 48 8d 0d ? ? ? "
+    "01 e8 ? ? c0 fe"
 );
 _LevelLoadCompleted LevelLoadCompleted_Original = nullptr;
 
@@ -642,17 +645,23 @@ _Damage Damage_Original = nullptr;
 // Function that gets a handle and resolves it to a pointer, useful to get
 // weapon object from player object
 RVA<_HandleToPointer>
-HandleToPointer (
+HandleToPointer ({
+
+    // Vulkan
     "40 53 48 83 ec 20 48 8b d9 48 85 c9 74 21 48 8b 01 ff 10 8b 48 68 3b 0d "
-    "0c 63 8b 04 7c 11 3b 0d 08 63 8b"
-);
+    "0c 63 8b 04 7c 11 3b 0d 08 63 8b",
+
+    // OpenGL
+    "40 53 48 83 ec 20 48 8b d9 48 85 c9 74 21 48 8b 01 ff 10 8b 48 68 3b 0d "
+    "2c ba 1b 03 7c 11 3b 0d 28 ba 1b"
+});
 
 // Function that updates weapon on idPlayer; we're using it to just get a
 // reference of the idPlayer object
 RVA<_UpdateWeapon>
 UpdateWeapon (
-    "40 55 53 57 48 8d ac 24 f0 fb ff ff 48 81 ec 10 05 00 00 48 8b 05 b6 f2 "
-    "8f 04 48 33 c4 48 89 85 c0 03"
+
+    "40 55 53 57 48 8d ac 24 f0 fb ff ff 48 81 ec 10 05 00 00 48 8b 05"
 );
 _UpdateWeapon UpdateWeapon_Original = nullptr;
 
