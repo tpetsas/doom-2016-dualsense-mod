@@ -44,17 +44,29 @@ jobs:
     - name: Verify no Debug CRT dependencies (Release)
       shell: pwsh
       run: |
-        $dumpbin = (Get-ChildItem "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\*\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Select-Object -First 1).FullName
-        if (!$dumpbin) { throw "dumpbin.exe not found" }
+        # Locate dumpbin via vswhere (robust on GitHub runners)
+        $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        if (!(Test-Path $vswhere)) { throw "vswhere.exe not found" }
 
-        # Only check Release exe/dll
+        $vsInstall = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+        if (!$vsInstall) { throw "Visual Studio with C++ tools not found" }
+
+        $dumpbin = Get-ChildItem "$vsInstall\VC\Tools\MSVC" -Recurse -Filter dumpbin.exe |
+                   Where-Object { $_.FullName -match "Hostx64\\x64" } |
+                   Select-Object -First 1
+
+        if (!$dumpbin) { throw "dumpbin.exe not found under $vsInstall" }
+
+        Write-Host "Using dumpbin: $($dumpbin.FullName)"
+
+        # Check only Release exe/dll
         $bins = Get-ChildItem -Recurse -File build |
           Where-Object { $_.FullName -match "\\Release\\" -and $_.Extension -in ".dll",".exe" }
 
         if ($bins.Count -eq 0) { throw "No Release exe/dll found under build to verify." }
 
         foreach($b in $bins) {
-          $deps = & $dumpbin /dependents $b.FullName | Out-String
+          $deps = & $dumpbin.FullName /dependents $b.FullName | Out-String
           if ($deps -match "VCRUNTIME140D\.dll|MSVCP140D\.dll|VCRUNTIME140_1D\.dll|ucrtbased\.dll") {
             Write-Host "---- $($b.FullName) ----"
             Write-Host $deps
