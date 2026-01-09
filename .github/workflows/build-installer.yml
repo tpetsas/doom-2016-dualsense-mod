@@ -112,6 +112,13 @@ jobs:
         cmake --build build-o --config Release
         Copy-Item build-o\bin\Release\dinput8.dll installer\files\dinput8.dll -Force
 
+    - name: List o-negative Release outputs
+      shell: pwsh
+      run: |
+        Get-ChildItem -Recurse -File build-o |
+          Where-Object { $_.FullName -match "\\Release\\" -and $_.Extension -in ".dll",".lib",".exe" } |
+          Select FullName, Length | Format-Table -AutoSize
+
     - name: Build Inno Setup Installer
       run: |
         & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\DOOMDSModInstaller.iss
