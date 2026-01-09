@@ -33,10 +33,59 @@ jobs:
         cd build
         cmake --build . --config Release
 
-    - name: Copy Built Files to Installer Directory
+    - name: List Release outputs (debugging)
+      shell: pwsh
       run: |
-        copy build\Release\dualsense-mod.dll installer\files\
-        copy build\Release\dualsensitive-service.exe installer\files\
+        Get-ChildItem -Recurse -File build |
+          Where-Object { $_.FullName -match "\\Release\\" -and $_.Extension -in ".dll",".exe",".lib" } |
+          Select-Object FullName, Length |
+          Format-Table -AutoSize
+
+    - name: Verify no Debug CRT dependencies (Release)
+      shell: pwsh
+      run: |
+        $dumpbin = (Get-ChildItem "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\*\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" | Select-Object -First 1).FullName
+        if (!$dumpbin) { throw "dumpbin.exe not found" }
+
+        # Only check Release exe/dll
+        $bins = Get-ChildItem -Recurse -File build |
+          Where-Object { $_.FullName -match "\\Release\\" -and $_.Extension -in ".dll",".exe" }
+
+        if ($bins.Count -eq 0) { throw "No Release exe/dll found under build to verify." }
+
+        foreach($b in $bins) {
+          $deps = & $dumpbin /dependents $b.FullName | Out-String
+          if ($deps -match "VCRUNTIME140D\.dll|MSVCP140D\.dll|VCRUNTIME140_1D\.dll|ucrtbased\.dll") {
+            Write-Host "---- $($b.FullName) ----"
+            Write-Host $deps
+            throw "❌ Debug CRT dependency detected in Release binary: $($b.Name)"
+          }
+        }
+
+        Write-Host "✅ No Debug CRT dependencies detected in Release binaries."
+
+    - name: Copy Built Files to Installer Directory (auto-detect Release outputs)
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force installer\files | Out-Null
+
+        function Find-ReleaseFile($name) {
+          $f = Get-ChildItem -Recurse -File build -Filter $name |
+               Where-Object { $_.FullName -match "\\Release\\" } |
+               Select-Object -First 1
+          if (!$f) { throw "Could not find $name under build\\**\\Release\\**" }
+          return $f.FullName
+        }
+
+        $modDll = Find-ReleaseFile "dualsense-mod.dll"
+        $svcExe = Find-ReleaseFile "dualsensitive-service.exe"
+
+        Copy-Item $modDll installer\files\ -Force
+        Copy-Item $svcExe installer\files\ -Force
+
+        Write-Host "Copied:"
+        Write-Host "  dualsense-mod.dll from $modDll"
+        Write-Host "  dualsensitive-service.exe from $svcExe"
 
     - name: Build Inno Setup Installer
       run: |
