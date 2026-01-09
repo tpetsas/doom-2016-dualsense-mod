@@ -99,6 +99,19 @@ jobs:
         Write-Host "  dualsense-mod.dll from $modDll"
         Write-Host "  dualsensitive-service.exe from $svcExe"
 
+    - name: Checkout o-negative
+      uses: actions/checkout@v3
+      with:
+        repository: tpetsas/o-negative
+        path: o-negative
+
+    - name: Build dinput8 proxy (Release)
+      shell: pwsh
+      run: |
+        cmake -S o-negative -B build-o -G "Visual Studio 17 2022"
+        cmake --build build-o --config Release
+        Copy-Item build-o\bin\Release\dinput8.dll installer\files\dinput8.dll -Force
+
     - name: Build Inno Setup Installer
       run: |
         & "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer\DOOMDSModInstaller.iss
