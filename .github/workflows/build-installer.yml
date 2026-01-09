@@ -138,3 +138,25 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Verify shipped binaries (installer\files) do not depend on Debug CRT
+      shell: pwsh
+      run: |
+        $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        $vsInstall = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+        $dumpbin = Get-ChildItem "$vsInstall\VC\Tools\MSVC" -Recurse -Filter dumpbin.exe |
+                   Where-Object { $_.FullName -match "Hostx64\\x64" } |
+                   Select-Object -First 1
+
+        $bins = Get-ChildItem -File installer\files\* |
+          Where-Object { $_.Extension -in ".dll",".exe" }
+
+        foreach($b in $bins) {
+          $deps = & $dumpbin.FullName /dependents $b.FullName | Out-String
+          if ($deps -match "VCRUNTIME140D\.dll|MSVCP140D\.dll|VCRUNTIME140_1D\.dll|ucrtbased\.dll") {
+            Write-Host "---- $($b.FullName) ----"
+            Write-Host $deps
+            throw "❌ Debug CRT dependency detected in shipped file: $($b.Name)"
+          }
+        }
+
+        Write-Host "✅ All shipped binaries in installer\files are clean."
