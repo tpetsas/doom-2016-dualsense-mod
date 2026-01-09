@@ -33,10 +33,91 @@ jobs:
         cd build
         cmake --build . --config Release
 
-    - name: Copy Built Files to Installer Directory
+    - name: List Release outputs (debugging)
+      shell: pwsh
       run: |
-        copy build\Release\dualsense-mod.dll installer\files\
-        copy build\Release\dualsensitive-service.exe installer\files\
+        Get-ChildItem -Recurse -File build |
+          Where-Object { $_.FullName -match "\\Release\\" -and $_.Extension -in ".dll",".exe",".lib" } |
+          Select-Object FullName, Length |
+          Format-Table -AutoSize
+
+    - name: Verify no Debug CRT dependencies (Release)
+      shell: pwsh
+      run: |
+        # Locate dumpbin via vswhere (robust on GitHub runners)
+        $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        if (!(Test-Path $vswhere)) { throw "vswhere.exe not found" }
+
+        $vsInstall = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+        if (!$vsInstall) { throw "Visual Studio with C++ tools not found" }
+
+        $dumpbin = Get-ChildItem "$vsInstall\VC\Tools\MSVC" -Recurse -Filter dumpbin.exe |
+                   Where-Object { $_.FullName -match "Hostx64\\x64" } |
+                   Select-Object -First 1
+
+        if (!$dumpbin) { throw "dumpbin.exe not found under $vsInstall" }
+
+        Write-Host "Using dumpbin: $($dumpbin.FullName)"
+
+        # Check only Release exe/dll
+        $bins = Get-ChildItem -Recurse -File build |
+          Where-Object { $_.FullName -match "\\Release\\" -and $_.Extension -in ".dll",".exe" }
+
+        if ($bins.Count -eq 0) { throw "No Release exe/dll found under build to verify." }
+
+        foreach($b in $bins) {
+          $deps = & $dumpbin.FullName /dependents $b.FullName | Out-String
+          if ($deps -match "VCRUNTIME140D\.dll|MSVCP140D\.dll|VCRUNTIME140_1D\.dll|ucrtbased\.dll") {
+            Write-Host "---- $($b.FullName) ----"
+            Write-Host $deps
+            throw "❌ Debug CRT dependency detected in Release binary: $($b.Name)"
+          }
+        }
+
+        Write-Host "✅ No Debug CRT dependencies detected in Release binaries."
+
+    - name: Copy Built Files to Installer Directory (auto-detect Release outputs)
+      shell: pwsh
+      run: |
+        New-Item -ItemType Directory -Force installer\files | Out-Null
+
+        function Find-ReleaseFile($name) {
+          $f = Get-ChildItem -Recurse -File build -Filter $name |
+               Where-Object { $_.FullName -match "\\Release\\" } |
+               Select-Object -First 1
+          if (!$f) { throw "Could not find $name under build\\**\\Release\\**" }
+          return $f.FullName
+        }
+
+        $modDll = Find-ReleaseFile "dualsense-mod.dll"
+        $svcExe = Find-ReleaseFile "dualsensitive-service.exe"
+
+        Copy-Item $modDll installer\files\ -Force
+        Copy-Item $svcExe installer\files\ -Force
+
+        Write-Host "Copied:"
+        Write-Host "  dualsense-mod.dll from $modDll"
+        Write-Host "  dualsensitive-service.exe from $svcExe"
+
+    - name: Checkout o-negative
+      uses: actions/checkout@v3
+      with:
+        repository: tpetsas/o-negative
+        path: o-negative
+
+    - name: Build dinput8 proxy (Release)
+      shell: pwsh
+      run: |
+        cmake -S o-negative -B build-o -G "Visual Studio 17 2022"
+        cmake --build build-o --config Release
+        Copy-Item build-o\bin\Release\dinput8.dll installer\files\dinput8.dll -Force
+
+    - name: List o-negative Release outputs
+      shell: pwsh
+      run: |
+        Get-ChildItem -Recurse -File build-o |
+          Where-Object { $_.FullName -match "\\Release\\" -and $_.Extension -in ".dll",".lib",".exe" } |
+          Select FullName, Length | Format-Table -AutoSize
 
     - name: Build Inno Setup Installer
       run: |
@@ -68,6 +149,7 @@ jobs:
         if-no-files-found: error
 
     - name: Upload to GitHub Release
+      if: startsWith(github.ref, 'refs/tags/')
       uses: softprops/action-gh-release@v2
       with:
         tag_name: ${{ github.ref_name }}
@@ -76,3 +158,25 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+    - name: Verify shipped binaries (installer\files) do not depend on Debug CRT
+      shell: pwsh
+      run: |
+        $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        $vsInstall = & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+        $dumpbin = Get-ChildItem "$vsInstall\VC\Tools\MSVC" -Recurse -Filter dumpbin.exe |
+                   Where-Object { $_.FullName -match "Hostx64\\x64" } |
+                   Select-Object -First 1
+
+        $bins = Get-ChildItem -File installer\files\* |
+          Where-Object { $_.Extension -in ".dll",".exe" }
+
+        foreach($b in $bins) {
+          $deps = & $dumpbin.FullName /dependents $b.FullName | Out-String
+          if ($deps -match "VCRUNTIME140D\.dll|MSVCP140D\.dll|VCRUNTIME140_1D\.dll|ucrtbased\.dll") {
+            Write-Host "---- $($b.FullName) ----"
+            Write-Host $deps
+            throw "❌ Debug CRT dependency detected in shipped file: $($b.Name)"
+          }
+        }
+
+        Write-Host "✅ All shipped binaries in installer\files are clean."
