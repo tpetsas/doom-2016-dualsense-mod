@@ -19,11 +19,6 @@ Built with the tools and technologies:
 <!-- <img width="1536" height="1024" alt="logo" src="https://github.com/user-attachments/assets/d7da38ec-ae70-4390-bcd7-def6b7af6402" /> -->
 <img width="768" height="512" alt="logo" src="https://github.com/user-attachments/assets/d7da38ec-ae70-4390-bcd7-def6b7af6402" />
 
-> [!IMPORTANT]
-> The mod is only compatible with the Vulkan shader. This can be changed in
-> **Settings > Advanced > Graphics API > Vulkan**. If there is interest though I will make it compatible with OpenGL 4.5
-
-
 ## Overview
 
 This mod allows players with a Playstation 5 DualSense controller to play DOOM (2016) with adaptive triggers. The adaptive triggers are assigned based on the current weapon used.
